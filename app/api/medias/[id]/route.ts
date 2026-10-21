@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getUserIdFromToken } from "@/lib/tokens";
+import { requireContentEditorApi } from "@/lib/api-users-auth";
 import { updateMediaSchema } from "@/schemas/media";
 import {
   uploadMediaGalleryImage,
@@ -8,12 +8,6 @@ import {
 } from "@/lib/upload";
 
 export const dynamic = "force-dynamic";
-
-async function getAuthUserId(req: NextRequest): Promise<string | null> {
-  const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return null;
-  return getUserIdFromToken(token);
-}
 
 export async function GET(
   _req: NextRequest,
@@ -52,10 +46,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getAuthUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireContentEditorApi();
+    if (!auth.ok) return auth.response;
+    const userId = auth.adminId;
 
     const { id } = await params;
     const existing = await db.media.findFirst({
@@ -144,10 +137,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getAuthUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireContentEditorApi();
+    if (!auth.ok) return auth.response;
+    const userId = auth.adminId;
 
     const { id } = await params;
     const existing = await db.media.findFirst({

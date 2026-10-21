@@ -6,7 +6,7 @@ import { useSession } from "@/context/SessionContext";
 
 interface RoleGateProps {
   children: React.ReactNode;
-  allowedRole: UserRole;
+  allowedRole: UserRole | readonly UserRole[];
 };
 
 export const RoleGate = ({
@@ -15,7 +15,9 @@ export const RoleGate = ({
 }: RoleGateProps) => {
   const {user} = useSession()
 
-  if (user?.role !== allowedRole) {
+  const allowed: readonly string[] = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
+
+  if (!user?.role || !allowed.includes(user.role)) {
     return (
       <FormError message="You do not have permission to view this content!" />
     )

@@ -7,6 +7,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 
+// Page liée à la session (cookies) : jamais pré-générée au build
+export const dynamic = "force-dynamic";
+
 // Composant pour afficher les informations du profil
 async function ProfileInfo() {
   const { userId } = await getAuthenticatedUser();

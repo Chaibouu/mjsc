@@ -3,9 +3,17 @@ import { getUserByEmail } from "@/data/user";
 import { generateVerificationToken } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/mail";
 import { ResendVerificationSchema } from "@/schemas";
+import { applyRateLimit } from "@/lib/rateLimit";
+
+// Même réponse que le compte existe ou non (pas d'énumération des comptes)
+const GENERIC_MESSAGE =
+  "Si un compte non vérifié existe pour cette adresse, un nouvel email de vérification a été envoyé.";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "resend-verification");
+    if (limited) return limited;
+
     const { email } = await req.json();
 
     if (!email) {
@@ -30,30 +38,9 @@ export async function POST(req: Request) {
     // Recherche de l'utilisateur par email
     const user = await getUserByEmail(email);
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Utilisateur non trouvé" },
-        { status: 404 }
-      );
-    }
-
-    // Si l'utilisateur est désactivé par l'administrateur (et non juste pour cause de non-vérification)
-    if (!user.isActive && user.emailVerified) {
-      return NextResponse.json(
-        {
-          error:
-            "Votre compte est désactivé. Veuillez contacter l'administrateur.",
-        },
-        { status: 403 }
-      );
-    }
-
-    // Si l'utilisateur a déjà vérifié son email
-    if (user.emailVerified) {
-      return NextResponse.json(
-        { message: "Votre email est déjà vérifié." },
-        { status: 200 }
-      );
+    // Rien à envoyer si le compte n'existe pas, est supprimé ou déjà vérifié
+    if (!user || user.isDeleted || user.emailVerified) {
+      return NextResponse.json({ message: GENERIC_MESSAGE }, { status: 200 });
     }
 
     // Générer un nouveau token de vérification
@@ -64,10 +51,7 @@ export async function POST(req: Request) {
     // Envoyer un nouvel email de vérification
     await sendVerificationEmail(user.email as string, verificationToken);
 
-    return NextResponse.json(
-      { message: "Un nouvel email de vérification a été envoyé." },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: GENERIC_MESSAGE }, { status: 200 });
   } catch (error) {
     console.error("Erreur lors de l'envoi de l'email de vérification :", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

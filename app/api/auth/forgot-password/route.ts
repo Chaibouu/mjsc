@@ -3,9 +3,17 @@ import { generatePasswordResetToken } from "@/lib/tokens";
 import { getUserByEmail } from "@/data/user";
 import { sendPasswordResetEmail } from "@/lib/mail";
 import { PasswordResetSchema } from "@/schemas";
+import { applyRateLimit } from "@/lib/rateLimit";
+
+// Même réponse que le compte existe ou non (pas d'énumération des comptes)
+const GENERIC_MESSAGE =
+  "Si un compte existe pour cette adresse, un email de réinitialisation a été envoyé.";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "forgot-password");
+    if (limited) return limited;
+
     const { email } = await req.json();
 
     // Vérifier si l'email est fourni
@@ -28,11 +36,8 @@ export async function POST(req: Request) {
     }
     // Recherche de l'utilisateur par email
     const user = await getUserByEmail(email);
-    if (!user) {
-      return NextResponse.json(
-        { error: "Utilisateur non trouvé" },
-        { status: 404 }
-      );
+    if (!user || user.isDeleted) {
+      return NextResponse.json({ message: GENERIC_MESSAGE }, { status: 200 });
     }
 
     // Générer un token de réinitialisation sécurisé
@@ -41,10 +46,7 @@ export async function POST(req: Request) {
     // Envoyer un email avec le lien de réinitialisation de mot de passe
     await sendPasswordResetEmail(user.email as string, resetToken);
 
-    return NextResponse.json(
-      { message: "Email de réinitialisation envoyé" },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: GENERIC_MESSAGE }, { status: 200 });
   } catch (error) {
     console.error(
       "Erreur lors de la réinitialisation du mot de passe :",

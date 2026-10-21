@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/db";
 import {
-  generateVerificationToken,
+  generateVerificationTokenForModifyEmail,
   verifyVerificationToken,
 } from "@/lib/tokens";
 import {
@@ -12,6 +13,9 @@ import { sendChangeEmailVerification } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "change-email");
+    if (limited) return limited;
+
     const { token } = await req.json();
 
     if (!token) {
@@ -22,14 +26,18 @@ export async function POST(req: Request) {
 
     if (error === "Token expiré") {
       const storedToken = await getVerificationTokenByToken(token);
-      if (!storedToken) {
+      // Seuls les tokens de changement d'email (liés à un userId) sont renouvelés ici
+      if (!storedToken || !storedToken.userId) {
         return NextResponse.json(
           { error: "Token introuvable" },
           { status: 400 }
         );
       }
 
-      const newToken = await generateVerificationToken(storedToken.email);
+      const newToken = await generateVerificationTokenForModifyEmail(
+        storedToken.email,
+        storedToken.userId
+      );
       await sendChangeEmailVerification(storedToken.email, newToken);
 
       return NextResponse.json(
@@ -40,32 +48,53 @@ export async function POST(req: Request) {
       );
     }
 
-    if (error === "Token invalide") {
+    if (error || !tokenPayload || typeof tokenPayload !== "object") {
       return NextResponse.json({ error: "Token invalide" }, { status: 400 });
     }
 
     const { email, tokenId, userId } = tokenPayload as {
-      email: string;
-      tokenId: string;
-      userId: string;
+      email?: string;
+      tokenId?: string;
+      userId?: string;
     };
 
+    // Un token d'inscription ne contient pas de userId : il ne doit pas être accepté ici
+    if (!email || !tokenId || !userId) {
+      return NextResponse.json({ error: "Token invalide" }, { status: 400 });
+    }
+
     const storedToken = await getVerificationTokenByTokenId(tokenId);
-    if (!storedToken) {
+    if (
+      !storedToken ||
+      storedToken.userId !== userId ||
+      storedToken.email !== email
+    ) {
       return NextResponse.json(
         { error: "Token introuvable ou déjà utilisé" },
         { status: 400 }
       );
     }
 
-    const user = await db.user.findFirst({
+    const user = await db.user.findUnique({
       where: { id: userId },
+      select: { id: true, isDeleted: true },
     });
 
-    if (!user) {
+    if (!user || user.isDeleted) {
       return NextResponse.json(
         { error: "Utilisateur introuvable" },
         { status: 404 }
+      );
+    }
+
+    const emailTaken = await db.user.findUnique({
+      where: { email: storedToken.email },
+      select: { id: true },
+    });
+    if (emailTaken && emailTaken.id !== user.id) {
+      return NextResponse.json(
+        { error: "Cette adresse e-mail est déjà utilisée" },
+        { status: 409 }
       );
     }
 

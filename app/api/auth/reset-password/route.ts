@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import { verifyPasswordResetToken } from "@/lib/tokens";
 import { getUserByEmail } from "@/data/user";
@@ -7,6 +8,9 @@ import { ResetPasswordSchema } from "@/schemas";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "reset-password");
+    if (limited) return limited;
+
     const { token, newPassword } = await req.json();
 
     // Vérifier si le token est manquant
@@ -98,6 +102,9 @@ export async function POST(req: Request) {
       where: { email: user.email as string },
       data: { password: hashedPassword },
     });
+
+    // Déconnecter toutes les sessions existantes (jetons d'accès et refresh tokens)
+    await db.session.deleteMany({ where: { userId: user.id } });
 
     // Supprimer le token de réinitialisation après usage
     await db.passwordResetToken.delete({

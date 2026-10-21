@@ -33,9 +33,9 @@ describe('Logger', () => {
     expect(mockConsoleInfo).toHaveBeenCalled()
   })
 
-  it('should log debug messages in development', () => {
+  it('should not log debug messages outside development', () => {
     logger.debug('Test debug')
-    expect(mockConsoleDebug).toHaveBeenCalled()
+    expect(mockConsoleDebug).not.toHaveBeenCalled()
   })
 
   it('should log with context', () => {
@@ -48,8 +48,10 @@ describe('Logger', () => {
   it('should log HTTP requests', () => {
     logger.logRequest('GET', '/api/users', 200, 150)
     expect(mockConsoleInfo).toHaveBeenCalledWith(
-      expect.stringContaining('HTTP Request'),
-      expect.any(Object)
+      expect.stringContaining('HTTP Request')
+    )
+    expect(mockConsoleInfo).toHaveBeenCalledWith(
+      expect.stringContaining('"statusCode":200')
     )
   })
 

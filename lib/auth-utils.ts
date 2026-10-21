@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { refreshUserToken } from "@/lib/user";
 import { getUserIdFromToken } from "@/lib/tokens";
+import { setAuthCookies } from "@/lib/auth-cookies";
 
 // Types pour les réponses d'authentification
 export interface AuthResult {
@@ -28,16 +29,14 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser> {
   // Si pas d'accessToken, essayer de le rafraîchir
   if (!accessToken) {
     try {
-      const { accessToken: newAccessToken, accessTokenExpiresAt } =
-        await refreshUserToken(refreshToken);
+      const refreshed = await refreshUserToken(refreshToken);
+      if ("error" in refreshed) {
+        throw new Error(refreshed.error);
+      }
+      const newAccessToken = refreshed.accessToken;
 
-      cookieStore.set("accessToken", newAccessToken, {
-        httpOnly: true,
-        secure: true,
-        maxAge: accessTokenExpiresAt,
-        path: "/",
-        sameSite: "lax",
-      });
+      // Le refresh token a tourné : on remplace les deux cookies
+      setAuthCookies(cookieStore, refreshed);
 
       // Extraire l'userId du token en utilisant getUserIdFromToken
       const userId = await getUserIdFromToken(newAccessToken);
@@ -74,16 +73,13 @@ export async function isAuthenticated(): Promise<boolean> {
     if (!accessToken) {
       // Essayer de rafraîchir le token
       try {
-        const { accessToken: newAccessToken, accessTokenExpiresAt } =
-          await refreshUserToken(refreshToken);
+        const refreshed = await refreshUserToken(refreshToken);
+        if ("error" in refreshed) {
+          return false;
+        }
 
-        cookieStore.set("accessToken", newAccessToken, {
-          httpOnly: true,
-          secure: true,
-          maxAge: accessTokenExpiresAt,
-          path: "/",
-          sameSite: "lax",
-        });
+        // Le refresh token a tourné : on remplace les deux cookies
+        setAuthCookies(cookieStore, refreshed);
 
         return true;
       } catch (error) {

@@ -40,7 +40,7 @@ const AdminPage = () => {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <RoleGate allowedRole={UserRole.ADMIN}>
+        <RoleGate allowedRole={[UserRole.SUPER_ADMIN, UserRole.ADMIN]}>
           <FormSuccess
             message="You are allowed to see this content!"
           />

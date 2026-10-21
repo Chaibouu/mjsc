@@ -1,5 +1,6 @@
 "use server";
 
+import { clientRequestHeaders } from "@/lib/forward-headers";
 export async function verifyEmail(token: string) {
   try {
     // Vérifier si le token est présent
@@ -12,7 +13,10 @@ export async function verifyEmail(token: string) {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/change-email/confirm`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await clientRequestHeaders()),
+        },
         body: JSON.stringify({ token }),
       }
     );

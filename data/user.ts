@@ -1,13 +1,10 @@
+import type { Role } from "@/lib/roles";
 import { db } from "@/lib/db";
 
+// Les erreurs de base de données remontent : les avaler ferait passer une panne
+// pour "compte inexistant" (et masquerait l'échec d'envoi des emails).
 export const getUserByEmail = async (email: string) => {
-  try {
-    const user = await db.user.findUnique({ where: { email } });
-
-    return user;
-  } catch {
-    return null;
-  }
+  return db.user.findUnique({ where: { email } });
 };
 
 // export const getUserById = async (id: string) => {
@@ -115,7 +112,7 @@ export type UpdateUserData = {
   phone?: string | null;
   address?: string | null;
   bio?: string | null;
-  role?: "ADMIN" | "USER";
+  role?: Role;
   isActive?: boolean;
   sexe?: "MASCULIN" | "FEMININ" | null;
   nigerLanguage?: ("FRANCAIS" | "HAOUSSA" | "ZARMA" | "TAMASHEQ" | "KANURI" | "FULFULDE" | "GOURMANTCHE" | "ARABE" | "TOUBOU" | "BUDUMA" | "TASSAWAQ" | "ANGLAIS" | "TAGDALT")[];

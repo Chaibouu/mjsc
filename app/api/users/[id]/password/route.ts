@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { requireAdminApi } from "@/lib/api-users-auth";
+import { canManageUser } from "@/lib/roles";
 import { db } from "@/lib/db";
 import { setUserPassword } from "@/data/user";
 import { passwordSchema } from "@/lib/validation-utils";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * PATCH /api/users/[id]/password
- * Modifier le mot de passe d'un utilisateur (ADMIN uniquement).
+ * Modifier le mot de passe d'un utilisateur (selon la hiérarchie des rôles).
  * Body: { newPassword: string }
  */
 export async function PATCH(
@@ -37,10 +38,16 @@ export async function PATCH(
 
     const target = await db.user.findUnique({
       where: { id },
-      select: { id: true, isDeleted: true },
+      select: { id: true, isDeleted: true, role: true },
     });
     if (!target || target.isDeleted) {
       return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+    }
+    if (!canManageUser(auth.role, target.role)) {
+      return NextResponse.json(
+        { error: "Vous ne pouvez pas modifier le mot de passe de ce compte" },
+        { status: 403 }
+      );
     }
 
     const hashed = await bcrypt.hash(parsed.data, 10);

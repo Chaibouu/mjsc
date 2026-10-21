@@ -40,8 +40,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Dossier des fichiers envoyés (monté en volume pour survivre aux redéploiements)
+RUN mkdir -p /app/uploads
+
 # Donner les permissions appropriées
 RUN chown -R nextjs:nodejs /app
+
+VOLUME ["/app/uploads"]
 
 USER nextjs
 

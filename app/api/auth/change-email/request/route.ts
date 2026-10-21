@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/db";
 import {
   generateVerificationTokenForModifyEmail,
@@ -8,6 +9,9 @@ import { sendChangeEmailVerification } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "change-email");
+    if (limited) return limited;
+
     const { newEmail } = await req.json();
     const authHeader = req.headers.get("Authorization");
 

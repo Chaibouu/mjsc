@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdminApi } from "@/lib/api-users-auth";
+import { assignableRoles, canManageUser, isRole } from "@/lib/roles";
 import {
   getUserById,
   updateUser,
@@ -49,7 +50,8 @@ export async function GET(
 
 /**
  * PATCH /api/users/[id]
- * Modifier les infos d'un utilisateur ou activer/désactiver son compte (ADMIN).
+ * Modifier les infos d'un utilisateur ou activer/désactiver son compte.
+ * Un ADMIN ne gère que les comptes USER / ASSOCIATION ; le SUPER_ADMIN gère aussi ADMIN et WEBMASTER.
  * Body: { name?, firstName?, lastName?, email?, phone?, address?, bio?, role?, isActive?, ... }
  */
 export async function PATCH(
@@ -71,6 +73,12 @@ export async function PATCH(
     });
     if (!target || target.isDeleted) {
       return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+    }
+    if (!canManageUser(auth.role, target.role)) {
+      return NextResponse.json(
+        { error: "Vous ne pouvez pas modifier ce compte" },
+        { status: 403 }
+      );
     }
 
     const body = (await req.json()) as Record<string, unknown>;
@@ -99,7 +107,15 @@ export async function PATCH(
     if (phone !== undefined) data.phone = phone as string | null;
     if (address !== undefined) data.address = address as string | null;
     if (bio !== undefined) data.bio = bio as string | null;
-    if (role === "ADMIN" || role === "USER") data.role = role;
+    if (role !== undefined) {
+      if (!isRole(role) || !assignableRoles(auth.role).includes(role)) {
+        return NextResponse.json(
+          { error: "Vous ne pouvez pas attribuer ce rôle" },
+          { status: 403 }
+        );
+      }
+      data.role = role;
+    }
     if (typeof isActive === "boolean") data.isActive = isActive;
     if (sexe === "MASCULIN" || sexe === "FEMININ" || sexe === null) data.sexe = sexe;
     if (Array.isArray(nigerLanguage)) data.nigerLanguage = nigerLanguage as UpdateUserData["nigerLanguage"];
@@ -119,18 +135,6 @@ export async function PATCH(
         { error: "Vous ne pouvez pas désactiver votre propre compte" },
         { status: 400 }
       );
-    }
-
-    if (data.role === "USER" && target.role === "ADMIN") {
-      const adminCount = await db.user.count({
-        where: { role: "ADMIN", isDeleted: false },
-      });
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          { error: "Impossible de retirer le dernier administrateur" },
-          { status: 400 }
-        );
-      }
     }
 
     if (typeof data.email === "string" && data.email.trim()) {
@@ -186,16 +190,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
     }
 
-    if (target.role === "ADMIN") {
-      const adminCount = await db.user.count({
-        where: { role: "ADMIN", isDeleted: false },
-      });
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          { error: "Impossible de supprimer le dernier administrateur" },
-          { status: 400 }
-        );
-      }
+    if (!canManageUser(auth.role, target.role)) {
+      return NextResponse.json(
+        { error: "Vous ne pouvez pas supprimer ce compte" },
+        { status: 403 }
+      );
     }
 
     await softDeleteUser(id);

@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 import { NextResponse } from "next/server";
 import { refreshUserToken } from "@/lib/user";
+import { setAuthCookies } from "@/lib/auth-cookies";
 
 export async function makeAuthenticatedRequest(
   url: string,
@@ -67,17 +69,14 @@ export async function makeAuthenticatedRequest(
 
     // Si l'`accessToken` est invalide ou absent, tenter de le rafraîchir
     try {
-      const { accessToken: newAccessToken, accessTokenExpiresAt } =
-        await refreshUserToken(refreshToken);
+      const refreshed = await refreshUserToken(refreshToken);
+      if ("error" in refreshed) {
+        return { error: refreshed.error };
+      }
+      const newAccessToken = refreshed.accessToken;
 
-      // Mettre à jour l'accessToken dans les cookies
-     cookieStore.set("accessToken", newAccessToken, {
-        httpOnly: true,
-        secure: true,
-        maxAge: accessTokenExpiresAt, // Définir l'expiration du token d'accès
-        path: "/",
-        sameSite: "lax",
-      });
+      // Le refresh token a tourné : on remplace les deux cookies
+      setAuthCookies(cookieStore, refreshed);
 
       // Utiliser le nouveau token d'accès
       finalHeaders["Authorization"] = `Bearer ${newAccessToken}`;
@@ -108,6 +107,8 @@ export async function makeAuthenticatedRequest(
       return NextResponse.json({ error: "Erreur lors de la requête" });
     }
   } catch (error) {
+    // Laisser passer les erreurs internes de Next (rendu dynamique, redirect...)
+    unstable_rethrow(error);
     console.error("Erreur dans makeAuthenticatedRequest:", error);
     throw new Error("Erreur lors de la requête authentifiée");
   }

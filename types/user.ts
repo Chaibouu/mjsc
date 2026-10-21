@@ -7,6 +7,7 @@ export type User = {
   name: string;
   isActive: boolean;
   image?: string;
+  profilePicture?: string | null;
   firstName?: string;
   lastName?: string;
   createdAt?: string | Date;

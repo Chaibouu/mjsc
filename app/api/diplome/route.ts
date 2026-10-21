@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { handleApiError } from "@/lib/api/helpers";
-import { getUserIdFromToken } from "@/lib/tokens";
-import { DiplomeSchema } from "@/schemas/fildOfStudies";
+import { handleApiError } from "@/lib/errors";
+import { requireAdminApi } from "@/lib/api-users-auth";
+import { DiplomeSchema } from "@/schemas/diplome";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -18,26 +20,21 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const token = req.headers.get("Authorization")?.split(" ")[1];
-    if (!token) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const userId = await getUserIdFromToken(token);
-    if (!userId) {
-      return NextResponse.json({ error: "Token invalide" }, { status: 403 });
-    }
+    const auth = await requireAdminApi();
+    if (!auth.ok) return auth.response;
 
     const body = await req.json();
     const validation = DiplomeSchema.safeParse(body);
-
-    if (!validation.success) return handleApiError(validation.error);
+    if (!validation.success) {
+      const msg = validation.error.errors[0]?.message ?? "Données invalides";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
 
     const { name } = validation.data;
 
     // Vérification de l'unicité
     const existingField = await db.diplome.findFirst({
-      where: { name, isDeleted: false }
+      where: { name, isDeleted: false },
     });
 
     if (existingField) {
@@ -48,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     const newField = await db.diplome.create({
-      data: { name }
+      data: { name },
     });
 
     return NextResponse.json(

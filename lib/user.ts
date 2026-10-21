@@ -1,4 +1,12 @@
-export const refreshUserToken = async (refreshToken: string) => {
+import { isAuthTokens, type AuthTokens } from "@/lib/auth-cookies";
+
+/**
+ * Échange le refresh token contre de nouveaux jetons. Le refresh token est remplacé
+ * à chaque appel : l'appelant doit enregistrer les deux jetons renvoyés.
+ */
+export const refreshUserToken = async (
+  refreshToken: string
+): Promise<AuthTokens | { error: string }> => {
   const refreshResponse = await fetch(
     `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/refresh`,
     {
@@ -11,7 +19,8 @@ export const refreshUserToken = async (refreshToken: string) => {
   if (!refreshResponse.ok) {
     return { error: "Impossible de rafraîchir le token" };
   }
-  return await refreshResponse.json();
+  const result = await refreshResponse.json();
+  return isAuthTokens(result) ? result : { error: "Réponse de rafraîchissement invalide" };
 };
 
 export const getUserInfo = async (accessToken: string) => {

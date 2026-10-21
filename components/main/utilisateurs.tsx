@@ -38,6 +38,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { roleLabels, sexeLabels } from "@/settings/labels";
+import { useSession } from "@/context/SessionContext";
+import { assignableRoles, canManageUser, type Role } from "@/lib/roles";
 import { updateUser, deleteUser, getUserById } from "@/actions/users";
 import {
   Search,
@@ -134,6 +136,9 @@ export function Utilisateurs({
   search,
 }: UtilisateursProps) {
   const router = useRouter();
+  const { user: currentUser } = useSession();
+  const currentRole = currentUser?.role as string | undefined;
+  const roleOptions = assignableRoles(currentRole);
   const [users, setUsers] = useState(initialUsers);
   const [searchInput, setSearchInput] = useState(search);
 
@@ -149,7 +154,7 @@ export function Utilisateurs({
     firstName: "",
     lastName: "",
     email: "",
-    role: "USER" as "ADMIN" | "USER",
+    role: "USER" as Role,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +173,7 @@ export function Utilisateurs({
         firstName: editUser.firstName ?? "",
         lastName: editUser.lastName ?? "",
         email: editUser.email ?? "",
-        role: (editUser.role as "ADMIN" | "USER") ?? "USER",
+        role: (editUser.role as Role) ?? "USER",
       });
       setError(null);
     }
@@ -221,7 +226,7 @@ export function Utilisateurs({
         firstName: editForm.firstName || null,
         lastName: editForm.lastName || null,
         email: editForm.email || null,
-        role: editForm.role,
+        ...(editForm.role !== editUser.role && { role: editForm.role }),
       });
       setUsers((prev) =>
         prev.map((u) =>
@@ -399,22 +404,26 @@ export function Utilisateurs({
                               <Eye className="mr-2 h-4 w-4" />
                               Voir
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setEditUser(u)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Modifier
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setToggleTarget(u)}>
-                              <Power className="mr-2 h-4 w-4" />
-                              {u.isActive ? "Désactiver" : "Activer"}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setDeleteTarget(u)}
-                              className="text-red-600 focus:text-red-600 dark:text-red-400"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer
-                            </DropdownMenuItem>
+                            {canManageUser(currentRole, u.role) && (
+                              <>
+                                <DropdownMenuItem onClick={() => setEditUser(u)}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Modifier
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setToggleTarget(u)}>
+                                  <Power className="mr-2 h-4 w-4" />
+                                  {u.isActive ? "Désactiver" : "Activer"}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setDeleteTarget(u)}
+                                  className="text-red-600 focus:text-red-600 dark:text-red-400"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Supprimer
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -777,7 +786,7 @@ export function Utilisateurs({
                   </Label>
                   <Select
                     value={editForm.role}
-                    onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as "ADMIN" | "USER" }))}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as Role }))}
                   >
                     <SelectTrigger
                       id="edit-role"
@@ -786,8 +795,11 @@ export function Utilisateurs({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="USER">Utilisateur</SelectItem>
-                      <SelectItem value="ADMIN">Administrateur</SelectItem>
+                      {roleOptions.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {roleLabels[r] ?? r}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

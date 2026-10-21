@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromToken } from "@/lib/tokens";
 import { db } from "@/lib/db";
+import { ADMIN_ROLES, hasRole } from "@/lib/roles";
 
 export type AssociationAuthResult =
   | { ok: true; userId: string; isAdmin: boolean; associationId?: string }
@@ -18,7 +19,17 @@ export async function requireAssociationAccess(
   req: NextRequest,
   associationId?: string
 ): Promise<AssociationAuthResult> {
-  const token = getToken(req);
+  return checkAssociationAccess(getToken(req), associationId);
+}
+
+/**
+ * Même vérification que requireAssociationAccess, à partir d'un token déjà extrait
+ * (en-tête Authorization ou cookie accessToken).
+ */
+export async function checkAssociationAccess(
+  token: string | null,
+  associationId?: string
+): Promise<AssociationAuthResult> {
   if (!token) {
     return { ok: false, response: NextResponse.json({ error: "Token manquant" }, { status: 401 }) };
   }
@@ -42,7 +53,7 @@ export async function requireAssociationAccess(
     };
   }
 
-  const isAdmin = user.role === "ADMIN";
+  const isAdmin = hasRole(user.role, ADMIN_ROLES);
 
   if (associationId) {
     const assoc = await db.association.findFirst({

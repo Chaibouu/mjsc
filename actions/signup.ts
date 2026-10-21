@@ -1,5 +1,6 @@
 "use server";
 
+import { clientRequestHeaders } from "@/lib/forward-headers";
 import { SignupSchema } from "@/schemas";
 
 export const signup = async (data: {
@@ -25,7 +26,10 @@ export const signup = async (data: {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/signup`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await clientRequestHeaders()),
+        },
         body: JSON.stringify({ name, email, password }),
       }
     );

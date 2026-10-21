@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { getUserByEmail } from "@/data/user";
@@ -8,6 +9,9 @@ import { SignupSchema } from "@/schemas";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "signup");
+    if (limited) return limited;
+
     const { name, email, password } = await req.json();
 
     if (!name) {

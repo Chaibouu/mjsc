@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/db";
 import {
   verifyVerificationToken,
@@ -12,6 +13,9 @@ import { sendVerificationEmail } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "verify");
+    if (limited) return limited;
+
     const { token } = await req.json();
 
     if (!token) {

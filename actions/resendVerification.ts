@@ -1,5 +1,6 @@
 "use server";
 
+import { clientRequestHeaders } from "@/lib/forward-headers";
 export const resendVerification = async (email: string) => {
   try {
     // Appeler l'API resend-verification
@@ -7,7 +8,10 @@ export const resendVerification = async (email: string) => {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/resend-verification`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await clientRequestHeaders()),
+        },
         body: JSON.stringify({ email }),
       }
     );
@@ -22,7 +26,11 @@ export const resendVerification = async (email: string) => {
       };
     }
 
-    return { success: "Email de vérification renvoyé avec succès" };
+    return {
+      success:
+        result.message ||
+        "Si un compte non vérifié existe pour cette adresse, un nouvel email de vérification a été envoyé.",
+    };
   } catch (error) {
     console.error("Erreur dans resendVerificationAction:", error);
     return { error: "Erreur serveur" };

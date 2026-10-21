@@ -1,5 +1,6 @@
 "use server";
 
+import { clientRequestHeaders } from "@/lib/forward-headers";
 import { PasswordResetSchema } from "@/schemas";
 
 export const forgotPassword = async (data: { email: string }) => {
@@ -21,7 +22,10 @@ export const forgotPassword = async (data: { email: string }) => {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/forgot-password`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await clientRequestHeaders()),
+        },
         body: JSON.stringify({ email }),
       }
     );
@@ -37,7 +41,9 @@ export const forgotPassword = async (data: { email: string }) => {
     }
 
     return {
-      success: "Un email de réinitialisation de mot de passe a été envoyé.",
+      success:
+        result.message ||
+        "Si un compte existe pour cette adresse, un email de réinitialisation a été envoyé.",
     };
   } catch (error) {
     console.error("Erreur dans forgotPasswordAction:", error);

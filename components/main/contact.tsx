@@ -78,7 +78,7 @@ export default function Contact() {
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold mb-2 text-gray-900">Adresse</h3>
                       <p className="text-gray-600 leading-relaxed">
-                        Ministère de la Jeunesse et des Sports<br />
+                        Ministère de la Jeunesse, des Sports et de la Culture<br />
                         Niamey, Niger
                       </p>
                     </div>

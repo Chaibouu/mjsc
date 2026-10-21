@@ -25,7 +25,7 @@ export default function Footer() {
               />
             </div>
             <p className="text-white/90 text-center md:text-center font-bold text-xl">
-              Ministère de la Jeunesse et des Sports
+              Ministère de la Jeunesse, des Sports et de la Culture
             </p>
           </div>
 

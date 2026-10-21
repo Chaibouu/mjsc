@@ -2,6 +2,7 @@
 
 import { getUserInfo, refreshUserToken } from "@/lib/user";
 import { cookies } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 // Utiliser cache() pour optimiser les performances
@@ -36,18 +37,15 @@ export const getUser = cache(async () => {
 
     // Si l'`accessToken` est absent ou invalide, tenter de rafraîchir le token d'accès
     try {
-      const { accessToken: newAccessToken, accessTokenExpiresAt } =
-        await refreshUserToken(refreshToken);
+      const refreshed = await refreshUserToken(refreshToken);
+      if ("error" in refreshed) {
+        return { error: refreshed.error };
+      }
 
-      const userData = await getUserInfo(newAccessToken);
-      // Mettre à jour uniquement l'accessToken dans les cookies, car le refreshToken est déjà là
+      const userData = await getUserInfo(refreshed.accessToken);
+      // Le refresh token a tourné : l'appelant (middleware) doit enregistrer les deux jetons
       if (!userData.error) {
-        const tokenInfo = {
-          accessToken: newAccessToken,
-          expiresAt: accessTokenExpiresAt,
-        };
-
-        return { user: userData, tokenInfo };
+        return { user: userData, tokenInfo: refreshed };
       } else {
         return { error: userData.error };
       }
@@ -56,6 +54,8 @@ export const getUser = cache(async () => {
       return { error: "Erreur lors du rafraîchissement" };
     }
   } catch (error) {
+    // Laisser passer les erreurs internes de Next (rendu dynamique, redirect...)
+    unstable_rethrow(error);
     console.error("Erreur générale dans getUser:", error);
     return { error: "Erreur serveur" };
   }

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { lookupIpLocation } from "@/lib/geo";
 
 // Fonction pour récupérer l'adresse IP
 export async function getIp() {
@@ -17,28 +18,12 @@ export async function getIp() {
 
 // Fonction pour récupérer les informations de géolocalisation à partir de l'adresse IP
 export async function getGeoLocation(ip: string | null) {
-  if (!ip) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(`http://ip-api.com/json/${ip}`);
-    const data = await response.json();
-
-    if (data.status === "success") {
-      return {
-        latitude: data.lat,
-        longitude: data.lon,
-        city: data.city,
-        country: data.country,
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error(
-      "Erreur lors de la récupération de la géolocalisation:",
-      error
-    );
-    return null;
-  }
+  const geo = await lookupIpLocation(ip);
+  if (!geo) return null;
+  return {
+    latitude: geo.latitude,
+    longitude: geo.longitude,
+    city: geo.city,
+    country: geo.country,
+  };
 }

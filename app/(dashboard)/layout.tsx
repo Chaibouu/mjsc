@@ -36,8 +36,8 @@ export default function DashboardLayout({
     return <Loader />;
   }
 
-  // Rediriger si l'utilisateur n'est pas authentifié
-  if (!isAuthenticated && !user) {
+  // Rediriger si l'utilisateur n'est pas authentifié (ou pas encore chargé)
+  if (!user) {
     return null;
   }
 

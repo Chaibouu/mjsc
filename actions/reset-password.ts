@@ -1,5 +1,6 @@
 "use server";
 
+import { clientRequestHeaders } from "@/lib/forward-headers";
 import { resetPasswordSchema } from "@/schemas";
 
 export const resetPassword = async (data: {
@@ -24,7 +25,10 @@ export const resetPassword = async (data: {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/reset-password`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await clientRequestHeaders()),
+        },
         body: JSON.stringify({ token, newPassword }),
       }
     );

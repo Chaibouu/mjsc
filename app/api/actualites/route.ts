@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getUserIdFromToken } from "@/lib/tokens";
+import { requireContentEditorApi } from "@/lib/api-users-auth";
 import { createActualiteSchema } from "@/schemas/actualite";
 import {
   uploadActualiteMainImage,
@@ -35,14 +35,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim();
-    if (!token) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-    const userId = await getUserIdFromToken(token);
-    if (!userId) {
-      return NextResponse.json({ error: "Token invalide" }, { status: 403 });
-    }
+    const auth = await requireContentEditorApi();
+    if (!auth.ok) return auth.response;
+    const userId = auth.adminId;
 
     const formData = await req.formData();
     const title = (formData.get("title") as string)?.trim();

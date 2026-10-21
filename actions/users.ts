@@ -1,6 +1,7 @@
 "use server";
 
 import { makeAuthenticatedRequest } from "./makeAuthenticatedRequest";
+import type { Role } from "@/lib/roles";
 
 const BASE = `${process.env.NEXT_PUBLIC_APP_URL}/api/users`;
 
@@ -69,7 +70,7 @@ export async function updateUser(
     phone?: string | null;
     address?: string | null;
     bio?: string | null;
-    role?: "ADMIN" | "USER";
+    role?: Role;
     isActive?: boolean;
     sexe?: "MASCULIN" | "FEMININ" | null;
     nigerLanguage?: string[];

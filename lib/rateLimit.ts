@@ -1,51 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import appConfig from "@/settings";
+import { db } from "@/lib/db";
 import { getClientIP } from "./geo";
 
-const rateLimitMap = new Map<string, { count: number; lastRequest: number }>();
+export type RateLimitBucket = keyof typeof appConfig.rateLimit;
 
-export async function applyRateLimit(req: NextRequest) {
-  const ip = getClientIP(req);
-  const { max, windowMs } = appConfig.rateLimit;
+/**
+ * Limitation de débit persistante (table rate_limits) : survit aux redémarrages
+ * et est partagée entre toutes les instances de l'application.
+ *
+ * Retourne une réponse 429 si la limite est dépassée, sinon null.
+ */
+export async function applyRateLimit(
+  req: { headers: Headers },
+  bucket: RateLimitBucket,
+  identifier?: string
+): Promise<NextResponse | null> {
+  const { max, windowMs } = appConfig.rateLimit[bucket];
+  const key = `${bucket}:${identifier ?? getClientIP(req)}`;
+  const windowStart = new Date(Date.now() - windowMs);
 
-  // Vérifier si l'IP a déjà fait des requêtes
-  if (!rateLimitMap.has(ip)) {
-    rateLimitMap.set(ip, { count: 1, lastRequest: Date.now() });
-  } else {
-    const requestInfo = rateLimitMap.get(ip)!;
+  try {
+    // Incrément atomique : la fenêtre repart à zéro si elle est expirée
+    const rows = await db.$queryRaw<{ count: number; windowStart: Date }[]>`
+      INSERT INTO "rate_limits" ("key", "count", "windowStart")
+      VALUES (${key}, 1, NOW())
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE WHEN "rate_limits"."windowStart" < ${windowStart} THEN 1 ELSE "rate_limits"."count" + 1 END,
+        "windowStart" = CASE WHEN "rate_limits"."windowStart" < ${windowStart} THEN NOW() ELSE "rate_limits"."windowStart" END
+      RETURNING "count", "windowStart"
+    `;
 
-    // Nettoyer les anciennes IPs pour éviter l'accumulation de données
-    cleanUpRateLimitMap(windowMs);
-
-    // Si la dernière requête est encore dans la fenêtre de temps
-    if (Date.now() - requestInfo.lastRequest < windowMs) {
-      requestInfo.count += 1;
-
-      // Bloquer si la limite est atteinte
-      if (requestInfo.count > max) {
-        return NextResponse.json(
-          { error: "Trop de requêtes, veuillez réessayer plus tard." },
-          { status: 429 }
-        );
-      }
-    } else {
-      // Réinitialiser le compteur si la fenêtre est écoulée
-      requestInfo.count = 1;
+    // Nettoyage occasionnel des compteurs expirés
+    if (Math.random() < 0.01) {
+      await db.rateLimit.deleteMany({
+        where: { windowStart: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      });
     }
 
-    requestInfo.lastRequest = Date.now();
-  }
-
-  return null; // Permettre la requête si la limite n'est pas atteinte
-}
-
-// Fonction pour nettoyer les IPs dont la fenêtre est expirée
-function cleanUpRateLimitMap(windowMs: number) {
-  const now = Date.now();
-  // Utilisation de Array.from() pour convertir les entrées de la Map en tableau
-  for (const [ip, requestInfo] of Array.from(rateLimitMap.entries())) {
-    if (now - requestInfo.lastRequest > windowMs) {
-      rateLimitMap.delete(ip);
+    const row = rows[0];
+    if (row && row.count > max) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((new Date(row.windowStart).getTime() + windowMs - Date.now()) / 1000)
+      );
+      return NextResponse.json(
+        { error: "Trop de tentatives, veuillez réessayer plus tard." },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
     }
+  } catch (error) {
+    // En cas d'indisponibilité de la base, on ne bloque pas l'authentification
+    console.error("Erreur de limitation de débit :", error);
   }
+
+  return null;
 }

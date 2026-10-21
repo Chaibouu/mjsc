@@ -1,71 +1,111 @@
+import path from "node:path";
 import nodemailer, { TransportOptions } from "nodemailer";
 import appConfig from "@/settings";
+import { EMAIL_LOGO_CID, renderEmail, type EmailContent } from "@/lib/email/template";
 
-const domain = process.env.NEXT_PUBLIC_APP_URL;
-const emailUser = process.env.MAIL_AUTH_USER;
+const domain = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
 const transporter = nodemailer.createTransport(
   appConfig.mailOptions as TransportOptions
 );
 
+// Expéditeur : EMAIL_FROM, sinon le compte SMTP
+const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_SERVER_USER;
+const sender = `"${appConfig.appName}" <${fromAddress}>`;
+
+const SECURITY_NOTICE =
+  "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : aucune modification ne sera faite sur votre compte.";
+
+/** Envoie un email transactionnel au gabarit de la plateforme (HTML + texte, logo joint). */
+async function sendTemplatedEmail(to: string, subject: string, content: EmailContent) {
+  const { html, text } = renderEmail(content);
+
+  await transporter.sendMail({
+    from: sender,
+    to,
+    subject,
+    html,
+    text,
+    ...(process.env.EMAIL_REPLY_TO && { replyTo: process.env.EMAIL_REPLY_TO }),
+    // Signale un email automatique (évite les réponses automatiques d'absence)
+    headers: {
+      "Auto-Submitted": "auto-generated",
+      "X-Auto-Response-Suppress": "OOF, AutoReply",
+    },
+    attachments: [
+      {
+        filename: "armoirie.png",
+        path: path.join(process.cwd(), "public/email/armoirie-email.png"),
+        cid: EMAIL_LOGO_CID,
+      },
+    ],
+  });
+}
+
 export const sendTwoFactorTokenEmail = async (email: string, token: string) => {
-  const mailOptions = {
-    from: `${appConfig.appName} ${emailUser}`,
-    to: email,
-    subject: "2FA Code",
-    html: `<p>Your 2FA code: ${token}</p>`,
-  };
-  await transporter.sendMail(mailOptions);
+  await sendTemplatedEmail(email, "Votre code de connexion", {
+    preheader: `Votre code de connexion : ${token}`,
+    title: "Votre code de connexion",
+    paragraphs: [
+      "Saisissez le code ci-dessous pour terminer votre connexion :",
+      token,
+    ],
+    notes: ["Ce code est valable 5 minutes.", "Ne le communiquez à personne."],
+    securityNotice:
+      "Si vous n'avez pas tenté de vous connecter, changez votre mot de passe dès que possible.",
+  });
 };
 
 export const sendPasswordResetEmail = async (email: string, token: string) => {
-  const encodedToken = encodeURIComponent(token);
+  const resetLink = `${domain}/auth/reset-password?token=${encodeURIComponent(token)}`;
 
-  const resetLink = `${domain}/auth/reset-password?token=${encodedToken}`;
-
-  const mailOptions = {
-    from: `${appConfig.appName} ${emailUser}`,
-    to: email,
-    subject: "Reset your password",
-    html: `<p>Click <a href="${resetLink}">here</a> to reset password.</p>`,
-  };
-  await transporter.sendMail(mailOptions);
+  await sendTemplatedEmail(email, "Réinitialisation de votre mot de passe", {
+    preheader: "Choisissez un nouveau mot de passe pour votre compte.",
+    title: "Réinitialisation de votre mot de passe",
+    paragraphs: [
+      "Bonjour,",
+      "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.",
+    ],
+    action: { label: "Choisir un nouveau mot de passe", url: resetLink },
+    notes: [
+      "Ce lien est valable 1 heure et ne peut servir qu'une fois.",
+      "Après la réinitialisation, toutes vos sessions ouvertes seront fermées.",
+    ],
+    securityNotice: SECURITY_NOTICE,
+  });
 };
 
 export const sendVerificationEmail = async (email: string, token: string) => {
-  const encodedToken = encodeURIComponent(token);
-  const confirmLink = `${domain}/auth/verify?token=${encodedToken}`;
+  const confirmLink = `${domain}/auth/verify?token=${encodeURIComponent(token)}`;
 
-  const mailOptions = {
-    from: `${appConfig.appName} ${emailUser}`,
-    to: email,
-    subject: "Vérification de votre compte",
-    html: `<p>Merci de vous être inscrit. Cliquez sur le lien suivant pour      vérifier votre compte :</p>
-  <a href="${confirmLink}">Vérifiez votre compte</a>`,
-  };
-
-  await transporter.sendMail(mailOptions);
+  await sendTemplatedEmail(email, "Confirmez votre adresse email", {
+    preheader: "Une dernière étape pour activer votre compte.",
+    title: "Confirmez votre adresse email",
+    paragraphs: [
+      "Bonjour,",
+      `Merci de vous être inscrit sur la plateforme du ${appConfig.appName}. Pour activer votre compte, confirmez votre adresse email en cliquant sur le bouton ci-dessous.`,
+    ],
+    action: { label: "Confirmer mon adresse email", url: confirmLink },
+    notes: ["Ce lien est valable 1 heure."],
+    securityNotice:
+      "Si vous n'avez pas créé de compte, ignorez cet email : aucun compte ne sera activé.",
+  });
 };
 
 export const sendChangeEmailVerification = async (
   email: string,
   verificationToken: string
 ) => {
-  const encodedToken = encodeURIComponent(verificationToken);
-  const verificationLink = `${domain}/auth/verify-email?token=${encodedToken}`;
+  const verificationLink = `${domain}/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
 
-  const mailOptions = {
-    from: `${appConfig.appName} <${emailUser}>`,
-    to: email,
-    subject: "Confirmation de changement d'adresse e-mail",
-    html: `
-      <p>Bonjour,</p>
-      <p>Vous avez demandé à changer votre adresse e-mail. Cliquez sur le lien ci-dessous pour confirmer :</p>
-      <a href="${verificationLink}">Modifier mon email</a>
-      <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.</p>
-      <p>Cordialement,</p>
-      <p>L'équipe ${appConfig.appName}</p>
-    `,
-  };
-
-  await transporter.sendMail(mailOptions);
+  await sendTemplatedEmail(email, "Confirmez votre nouvelle adresse email", {
+    preheader: "Confirmez le changement d'adresse email de votre compte.",
+    title: "Confirmez votre nouvelle adresse email",
+    paragraphs: [
+      "Bonjour,",
+      "Vous avez demandé à utiliser cette adresse pour votre compte. Cliquez sur le bouton ci-dessous pour confirmer le changement.",
+    ],
+    action: { label: "Confirmer cette adresse", url: verificationLink },
+    notes: ["Ce lien est valable 1 heure.", "Votre ancienne adresse reste active tant que vous n'avez pas confirmé."],
+    securityNotice: SECURITY_NOTICE,
+  });
 };

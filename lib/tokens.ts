@@ -1,10 +1,10 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "@/lib/db";
 import { getVerificationTokenByEmail } from "@/data/verification-token";
 import { getPasswordResetTokenByEmail } from "@/data/password-reset-token";
 import { getTwoFactorTokenByEmail } from "@/data/two-factor-token";
-import { JwtPayload, TokenExpiredError } from "jsonwebtoken"; // Type du payload JWT
+import { JwtPayload, SignOptions, TokenExpiredError } from "jsonwebtoken"; // Type du payload JWT
 import { verify, sign } from "jsonwebtoken";
 const privateKey = process.env.RSA_PRIVATE_KEY as string;
 const publicKey = process.env.RSA_PUBLIC_KEY as string;
@@ -228,7 +228,10 @@ export const verifyVerificationToken = async (encryptedToken: string) => {
 };
 
 // Créer un JWT avec chiffrement AES-256-GCM
-export const createEncryptedJWT = (payload: object, expiresIn: string) => {
+export const createEncryptedJWT = (
+  payload: object,
+  expiresIn: SignOptions["expiresIn"]
+) => {
   // Créer le JWT signé avec la clé privée RSA
   const token = sign(payload, privateKey, {
     algorithm: ALGORITHM,
@@ -280,28 +283,43 @@ export const verifyEncryptedJWT = (encryptedToken: string) => {
   return verify(decryptedToken, publicKey, { algorithms: ["RS256"] });
 };
 
-// Fonction pour récupérer l'ID utilisateur à partir du token JWT chiffré
+/**
+ * Retourne la session liée à un jeton d'accès chiffré, ou null si le jeton est invalide,
+ * expiré, ou si sa session a été supprimée (déconnexion, révocation, réutilisation détectée).
+ */
+export async function getSessionFromToken(
+  token: string
+): Promise<{ userId: string; sessionId: string } | null> {
+  try {
+    const decodedToken = verifyEncryptedJWT(token);
+    if (typeof decodedToken !== "object") return null;
+
+    const { userId, sid } = decodedToken as JwtPayload;
+    if (typeof userId !== "string" || typeof sid !== "string") return null;
+
+    const session = await db.session.findUnique({
+      where: { id: sid },
+      select: { userId: true, refreshTokenExpires: true },
+    });
+    if (!session || session.userId !== userId || session.refreshTokenExpires < new Date()) {
+      return null;
+    }
+
+    return { userId, sessionId: sid };
+  } catch (error) {
+    if (!(error instanceof TokenExpiredError)) {
+      console.error("Erreur lors de la vérification du token:", error);
+    }
+    return null;
+  }
+}
+
+// Fonction pour récupérer l'ID utilisateur à partir du token JWT chiffré (session active requise)
 export async function getUserIdFromToken(
   token: string
 ): Promise<string | null> {
-  try {
-    // Déchiffrer et vérifier le JWT chiffré pour obtenir le payload
-    const decodedToken = verifyEncryptedJWT(token);
-
-    // Vérifier que le payload est bien de type JwtPayload et contient l'ID utilisateur
-    if (
-      typeof decodedToken === "object" &&
-      (decodedToken as JwtPayload).userId
-    ) {
-      const userId = (decodedToken as JwtPayload).userId as string;
-      return userId;
-    }
-    // Si le token n'a pas d'ID utilisateur, retourner null
-    return null;
-  } catch (error) {
-    console.error("Erreur lors de la vérification du token:", error);
-    return null;
-  }
+  const session = await getSessionFromToken(token);
+  return session?.userId ?? null;
 }
 
 export const generateVerificationTokenForModifyEmail = async (

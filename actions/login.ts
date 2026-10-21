@@ -1,7 +1,9 @@
 "use server";
 
+import { clientRequestHeaders } from "@/lib/forward-headers";
 import { LoginSchema } from "@/schemas";
-import { setMultipleCookies } from "./setMultipleCookies";
+import { cookies } from "next/headers";
+import { isAuthTokens, setAuthCookies } from "@/lib/auth-cookies";
 
 export const login = async (data: {
   email: string;
@@ -27,7 +29,10 @@ export const login = async (data: {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/login`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await clientRequestHeaders()),
+        },
         body: JSON.stringify({ email, password, rememberMe }),
       }
     );
@@ -39,33 +44,12 @@ export const login = async (data: {
       return { error: result.error || "Erreur lors de la connexion" };
     }
 
-    const { accessToken, refreshToken } = result;
+    if (!isAuthTokens(result)) {
+      return { error: "Réponse de connexion invalide" };
+    }
 
-    // Configuration des cookies pour les tokens
-
-    // Cookie pour le token d'accès
-    await setMultipleCookies([
-      {
-        name: "accessToken",
-        value: accessToken,
-        options: {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          maxAge: 60 * 60, // 1 heure
-          sameSite: "lax", // Cross-site permis
-        },
-      },
-      {
-        name: "refreshToken",
-        value: refreshToken,
-        options: {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          maxAge: rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60,
-          sameSite: "lax", // Cross-site permis
-        },
-      },
-    ]);
+    // Cookies httpOnly pour le jeton d'accès et le refresh token
+    setAuthCookies(await cookies(), result);
 
     return { success: "Connexion réussie" };
   } catch (error) {

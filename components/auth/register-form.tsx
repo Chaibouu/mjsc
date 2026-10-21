@@ -57,7 +57,7 @@ export const RegisterForm = () => {
       {/* Carte rectangulaire avec 2 côtés */}
       <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="grid md:grid-cols-2">
-          {/* Côté gauche - Couleur Mjs avec logo */}
+          {/* Côté gauche - Couleur MJSC avec logo */}
           <div 
             className="p-8 flex flex-col justify-center items-center text-white relative overflow-hidden"
             style={{
@@ -70,12 +70,12 @@ export const RegisterForm = () => {
             
             {/* Contenu */}
             <div className="relative z-10 text-center px-6">
-              {/* Logo Mjs */}
+              {/* Logo MJSC */}
               <div className="flex justify-center mb-8">
                 <div className="w-24 h-24 md:w-28 md:h-28 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border-2 border-white/30">
                   <Image
                     src="/armoirie.png"
-                    alt="Logo Mjs"
+                    alt="Logo MJSC"
                     width={96}
                     height={96}
                     className="object-contain"
@@ -96,7 +96,7 @@ export const RegisterForm = () => {
               
               {/* Nom du ministère */}
               <h2 className="text-lg md:text-xl font-semibold mb-8 text-white/90">
-                Ministère de la Jeunesse et des Sports
+                Ministère de la Jeunesse, des Sports et de la Culture
               </h2>
               
               {/* Message de bienvenue */}

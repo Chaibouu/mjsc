@@ -7,8 +7,8 @@ import {
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getUser } from "./actions/getUser";
-import { applyRateLimit } from "./lib/rateLimit";
 import { isRouteProtected } from "./utils/is-route-protected";
+import { setAuthCookies } from "./lib/auth-cookies";
 
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
@@ -20,13 +20,10 @@ export async function middleware(req: NextRequest) {
     const isPublicRoute = publicRoutes.includes(nextUrl.pathname); // Public routes
     const isAuthRoute = authRoutes.includes(nextUrl.pathname); // Auth-related pages (login, register, etc.)
 
-    // Appliquer un "rate limit" uniquement sur les routes d'authentification
+    // Routes d'authentification : la limitation de débit est appliquée dans chaque route
+    // (stockée en base, voir lib/rateLimit.ts)
     if (isApiAuthRoute) {
-      const rateLimitResponse = await applyRateLimit(req);
-      if (rateLimitResponse) {
-        return rateLimitResponse; // Retourner la réponse si le rate limit est dépassé
-      }
-      return NextResponse.next(); // Continuer l'exécution si le rate limit n'est pas dépassé
+      return NextResponse.next();
     }
 
     // **Cas API :** Récupérer les tokens directement depuis l'en-tête d'authentification
@@ -64,16 +61,8 @@ export async function middleware(req: NextRequest) {
     if (result?.tokenInfo) {
       const response = NextResponse.next();
 
-      // Mise à jour de l'accessToken dans le cookie
-      response.cookies.set({
-        name: "accessToken",
-        value: result.tokenInfo.accessToken,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: result.tokenInfo.expiresAt,
-        path: "/",
-        sameSite: "lax",
-      });
+      // Jetons renouvelés : le refresh token a tourné, on remplace les deux cookies
+      setAuthCookies(response.cookies, result.tokenInfo);
 
       return response;
     }

@@ -1,98 +1,107 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { handleApiError } from "@/lib/api/helpers";
-import { getUserIdFromToken } from "@/lib/tokens";
-import { Prisma } from "@prisma/client";
-import { DiplomeSchema } from "@/schemas/fildOfStudies";
+import { handleApiError } from "@/lib/errors";
+import { requireAdminApi } from "@/lib/api-users-auth";
+import { DiplomeSchema } from "@/schemas/diplome";
 
-export async function GET(req: NextRequest) {
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = req.nextUrl.pathname.split("/").pop();
-    const field = await db.diplome.findUnique({
+    const { id } = await params;
+    const field = await db.diplome.findFirst({
       where: { id, isDeleted: false },
     });
-    return field ? NextResponse.json(field) : NextResponse.json({ error: "Non trouvé" }, { status: 404 });
+    return field
+      ? NextResponse.json(field)
+      : NextResponse.json({ error: "Non trouvé" }, { status: 404 });
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-// Ajoutez ici les méthodes PUT et DELETE similaires à celles de jobCategory
-// (en utilisant prisma.diplome au lieu de prisma.jobCategory)
-
-
-export async function PUT(req: NextRequest) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = req.nextUrl.pathname.split("/").pop();
-    if (!id) {
-      return NextResponse.json({ error: "ID manquant" }, { status: 400 });
-    }
+    const auth = await requireAdminApi();
+    if (!auth.ok) return auth.response;
 
-    const token = req.headers.get("Authorization")?.split(" ")[1];
-    if (!token) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const userId = await getUserIdFromToken(token);
-    if (!userId) {
-      return NextResponse.json({ error: "Token invalide" }, { status: 403 });
+    const { id } = await params;
+    const existing = await db.diplome.findFirst({
+      where: { id, isDeleted: false },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
     }
 
     const body = await req.json();
     const validation = DiplomeSchema.safeParse(body);
-    if (!validation.success) return handleApiError(validation.error);
+    if (!validation.success) {
+      const msg = validation.error.errors[0]?.message ?? "Données invalides";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
 
     const { name } = validation.data;
+
+    const duplicate = await db.diplome.findFirst({
+      where: { name, isDeleted: false, NOT: { id } },
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: "Ce diplome existe déjà" },
+        { status: 409 }
+      );
+    }
 
     const updatedField = await db.diplome.update({
       where: { id },
       data: { name },
     });
 
-    return NextResponse.json({data:updatedField,message:"Diplome mise à jour avec succès"});
+    return NextResponse.json({
+      data: updatedField,
+      message: "Diplome mis à jour avec succès",
+    });
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = req.nextUrl.pathname.split("/").pop();
-    if (!id) {
-      return NextResponse.json({ error: "ID manquant" }, { status: 400 });
-    }
+    const auth = await requireAdminApi();
+    if (!auth.ok) return auth.response;
 
-    const token = req.headers.get("Authorization")?.split(" ")[1];
-    if (!token) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const userId = await getUserIdFromToken(token);
-    if (!userId) {
-      return NextResponse.json({ error: "Token invalide" }, { status: 403 });
-    }
-
-    const deletedAt = new Date();
-    const diplomes = await db.diplome.findUnique({
+    const { id } = await params;
+    const existing = await db.diplome.findFirst({
       where: { id, isDeleted: false },
-    })
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
+    }
 
-
+    // Le nom est unique : on le préfixe pour pouvoir recréer un diplôme du même nom
+    const deletedAt = new Date();
     await db.diplome.update({
       where: { id },
       data: {
         isDeleted: true,
         deletedAt,
-        deletedBy: userId,
-        name: `deleted_${deletedAt.getTime()}_${diplomes?.name}`
+        deletedBy: auth.adminId,
+        name: `deleted_${deletedAt.getTime()}_${existing.name}`,
       },
     });
 
-    return NextResponse.json({ message: "Domaine d'étude supprimé" });
+    return NextResponse.json({ message: "Diplome supprimé" });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      console.error("Erreur Prisma:", error.message);
-    }
     return handleApiError(error);
   }
 }

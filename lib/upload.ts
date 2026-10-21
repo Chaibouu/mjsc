@@ -5,6 +5,7 @@
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { deleteObject, putObject } from "@/lib/storage";
 
 export interface UploadOptions {
   maxSize?: number; // Taille maximale en bytes
@@ -484,11 +485,12 @@ export async function deleteMediaGalleryImage(path: string): Promise<void> {
   if (existsSync(filepath)) await unlink(filepath);
 }
 
-const ASSOCIATION_BASE = "uploads/associations";
+const ASSOCIATION_PREFIX = "associations";
 const ASSOCIATION_IMAGE_MAX = 5 * 1024 * 1024;
 const ASSOCIATION_DOC_MAX = 10 * 1024 * 1024;
 const ASSOCIATION_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ASSOCIATION_DOC_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"];
+const ASSOCIATION_EXTS = ["jpg", "png", "webp", "gif", "pdf"];
 
 function associationExt(file: File, allowPdf = false): string {
   const raw = (file.name?.split(".").pop() || "jpg").toLowerCase();
@@ -496,6 +498,35 @@ function associationExt(file: File, allowPdf = false): string {
   if (allowPdf) exts.push("pdf");
   if (exts.includes(raw)) return raw === "jpeg" ? "jpg" : raw;
   return allowPdf && file.type === "application/pdf" ? "pdf" : "jpg";
+}
+
+/** Enregistre un fichier d'association (R2 ou disque) et supprime ses variantes d'extension. */
+async function storeAssociationFile(
+  file: File,
+  associationId: string,
+  kind: string,
+  basename: string,
+  ext: string,
+  replaceVariants: boolean
+): Promise<UploadResult> {
+  const filename = `${basename}.${ext}`;
+  const dir = `${ASSOCIATION_PREFIX}/${associationId}/${kind}`;
+
+  if (replaceVariants) {
+    for (const other of ASSOCIATION_EXTS) {
+      if (other !== ext) await deleteObject(`${dir}/${basename}.${other}`);
+    }
+  }
+
+  const bytes = await file.arrayBuffer();
+  await putObject(`${dir}/${filename}`, new Uint8Array(bytes), file.type);
+
+  return {
+    filename,
+    path: `/api/uploads/${dir}/${filename}`,
+    size: file.size,
+    mimetype: file.type,
+  };
 }
 
 type AssociationSlot = "logo" | "statuts" | "reglement" | "recepisse" | "pv";
@@ -515,28 +546,7 @@ export async function uploadAssociationSlotFile(
   });
   if (!v.valid) throw new Error(v.error);
 
-  const dir = join(process.cwd(), ASSOCIATION_BASE, associationId, slot);
-  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
-
-  const ext = associationExt(file, !isLogo);
-  const filename = `${slot}.${ext}`;
-  const filepath = join(dir, filename);
-
-  const { readdir, unlink } = await import("fs/promises");
-  const files = await readdir(dir).catch(() => []);
-  for (const f of files) {
-    if (f !== filename) await unlink(join(dir, f));
-  }
-
-  const bytes = await file.arrayBuffer();
-  await writeFile(filepath, new Uint8Array(bytes));
-
-  return {
-    filename,
-    path: `/api/uploads/associations/${associationId}/${slot}/${filename}`,
-    size: file.size,
-    mimetype: file.type,
-  };
+  return storeAssociationFile(file, associationId, slot, slot, associationExt(file, !isLogo), true);
 }
 
 /**
@@ -553,28 +563,7 @@ export async function uploadAssociationDirigeantPiece(
   });
   if (!v.valid) throw new Error(v.error);
 
-  const base = join(process.cwd(), ASSOCIATION_BASE, associationId, "dirigeants");
-  if (!existsSync(base)) await mkdir(base, { recursive: true });
-
-  const ext = associationExt(file, true);
-  const filename = `${dirigeantId}.${ext}`;
-  const filepath = join(base, filename);
-
-  const { readdir, unlink } = await import("fs/promises");
-  const files = await readdir(base).catch(() => []);
-  for (const f of files) {
-    if (f.startsWith(`${dirigeantId}.`) && f !== filename) await unlink(join(base, f));
-  }
-
-  const bytes = await file.arrayBuffer();
-  await writeFile(filepath, new Uint8Array(bytes));
-
-  return {
-    filename,
-    path: `/api/uploads/associations/${associationId}/dirigeants/${filename}`,
-    size: file.size,
-    mimetype: file.type,
-  };
+  return storeAssociationFile(file, associationId, "dirigeants", dirigeantId, associationExt(file, true), true);
 }
 
 /**
@@ -590,30 +579,15 @@ export async function uploadAssociationDocument(
   });
   if (!v.valid) throw new Error(v.error);
 
-  const base = join(process.cwd(), ASSOCIATION_BASE, associationId, "documents");
-  if (!existsSync(base)) await mkdir(base, { recursive: true });
-
-  const ext = associationExt(file, true);
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const filename = `${unique}.${ext}`;
-  const filepath = join(base, filename);
-
-  const bytes = await file.arrayBuffer();
-  await writeFile(filepath, new Uint8Array(bytes));
-
-  return {
-    filename,
-    path: `/api/uploads/associations/${associationId}/documents/${filename}`,
-    size: file.size,
-    mimetype: file.type,
-  };
+  return storeAssociationFile(file, associationId, "documents", unique, associationExt(file, true), false);
 }
 
+/**
+ * Supprime un fichier d'association (path = /api/uploads/associations/{id}/{kind}/{filename}).
+ */
 export async function deleteAssociationFile(path: string): Promise<void> {
-  const m = /^\/api\/uploads\/associations\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(path);
+  const m = /^\/api\/uploads\/associations\/([a-zA-Z0-9_-]+)\/([a-z]+)\/([a-zA-Z0-9_.-]+)$/.exec(path);
   if (!m) return;
-  const base = join(process.cwd(), ASSOCIATION_BASE, m[1], m[2]);
-  const filepath = join(base, m[3]);
-  const { unlink } = await import("fs/promises");
-  if (existsSync(filepath)) await unlink(filepath);
+  await deleteObject(`${ASSOCIATION_PREFIX}/${m[1]}/${m[2]}/${m[3]}`);
 }

@@ -81,7 +81,7 @@ export default function Main() {
                   "text-base lg:text-lg font-semibold text-white/90",
                   font.className
                 )}>
-                  Ministre de la Jeunesse et des Sports
+                  Ministre de la Jeunesse, des Sports et de la Culture
                 </h3>
               </div>
             </div>
@@ -124,7 +124,7 @@ export default function Main() {
               Nos Domaines d'Action
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Le Ministère de la Jeunesse et des Sports œuvre pour le développement de la jeunesse et du sport au Niger 
+              Le Ministère de la Jeunesse, des Sports et de la Culture œuvre pour le développement de la jeunesse, du sport et de la culture au Niger 
               à travers des programmes innovants et des initiatives structurantes.
             </p>
           </div>

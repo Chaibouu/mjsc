@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { join, resolve, relative } from "path";
-import { existsSync, readFileSync } from "fs";
+import { getObject } from "@/lib/storage";
+import { checkAssociationAccess } from "@/lib/api-association-auth";
 
 export const dynamic = "force-dynamic";
 
-const UPLOAD_BASE = "uploads/associations";
 const KINDS = ["logo", "statuts", "reglement", "recepisse", "pv", "dirigeants", "documents"] as const;
+// Le logo est affiché publiquement ; tous les autres fichiers sont confidentiels
+const PUBLIC_KINDS: readonly string[] = ["logo"];
 const MIMES: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -15,12 +16,18 @@ const MIMES: Record<string, string> = {
   pdf: "application/pdf",
 };
 
+function getToken(req: NextRequest): string | null {
+  const header = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim();
+  return header || req.cookies.get("accessToken")?.value || null;
+}
+
 /**
  * GET /api/uploads/associations/[id]/[kind]/[filename]
- * Sert logo, statuts, règlement, récépissé, PV, pièces dirigeants, documents.
+ * Sert logo (public), statuts, règlement, récépissé, PV, pièces dirigeants, documents
+ * (réservés à l'ADMIN et au compte lié à l'association).
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; kind: string; filename: string }> }
 ) {
   const { id, kind, filename } = await params;
@@ -30,30 +37,34 @@ export async function GET(
   if (!KINDS.includes(kind as (typeof KINDS)[number])) {
     return NextResponse.json({ error: "Type invalide" }, { status: 400 });
   }
-  if (!filename || !/^[a-zA-Z0-9_.-]+\.[a-z]+$/.test(filename)) {
+  if (!filename || !/^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.[a-z]+$/.test(filename) || filename.includes("..")) {
     return NextResponse.json({ error: "Nom de fichier invalide" }, { status: 400 });
   }
 
-  const base = resolve(process.cwd(), UPLOAD_BASE, id, kind);
-  const filepath = resolve(base, filename);
-  const rel = relative(base, filepath);
-
-  if (rel.startsWith("..") || rel.includes("..") || !existsSync(filepath)) {
-    return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+  const isPublic = PUBLIC_KINDS.includes(kind);
+  if (!isPublic) {
+    const auth = await checkAssociationAccess(getToken(req), id);
+    if (!auth.ok) return auth.response;
   }
 
-  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-  const contentType = MIMES[ext] ?? "application/octet-stream";
-
   try {
-    const buffer = readFileSync(filepath);
-    return new NextResponse(new Uint8Array(buffer), {
+    const object = await getObject(`associations/${id}/${kind}/${filename}`);
+    if (!object) {
+      return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+    }
+
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+    return new NextResponse(Buffer.from(object.body), {
       headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "private, max-age=0, must-revalidate",
+        "Content-Type": MIMES[ext] ?? "application/octet-stream",
+        "Cache-Control": isPublic
+          ? "public, max-age=300"
+          : "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/uploads/associations:", error);
     return NextResponse.json({ error: "Erreur lecture fichier" }, { status: 500 });
   }
 }

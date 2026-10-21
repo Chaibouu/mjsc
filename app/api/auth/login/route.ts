@@ -1,13 +1,13 @@
 import { NextResponse, userAgent } from "next/server";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { db } from "@/lib/db";
 import { getUserByEmail } from "@/data/user";
-import { createEncryptedJWT, generateVerificationToken } from "@/lib/tokens";
-import { createSession } from "@/data/session";
+import { generateVerificationToken } from "@/lib/tokens";
+import { issueSession } from "@/data/session";
 import appConfig from "@/settings";
 import { sendVerificationEmail } from "@/lib/mail";
 import { getGeoLocation, getIp } from "@/utils/user-agent";
+import { applyRateLimit } from "@/lib/rateLimit";
 import {
   getBackoffDelay,
   getFailedAttempts,
@@ -16,8 +16,19 @@ import {
 } from "@/lib/backoff";
 import { LoginSchema } from "@/schemas";
 
+// Message unique pour un email inconnu ou un mot de passe faux : ne révèle pas
+// l'existence d'un compte.
+const INVALID_CREDENTIALS = "Email ou mot de passe incorrect";
+
+// Hash factice comparé quand le compte n'existe pas, pour que le temps de réponse
+// soit le même qu'avec un compte existant.
+const DUMMY_HASH = bcrypt.hashSync("compte-inexistant", 10);
+
 export async function POST(req: Request) {
   try {
+    const limited = await applyRateLimit(req, "login");
+    if (limited) return limited;
+
     const { email, password, rememberMe } = await req.json();
 
     // Vérification des champs manquants
@@ -36,8 +47,6 @@ export async function POST(req: Request) {
 
     // Validation des données avec Zod
     const parsedData = LoginSchema.safeParse({ email, password });
-
-    // Si la validation échoue, renvoyer les erreurs de Zod
     if (!parsedData.success) {
       return NextResponse.json(
         {
@@ -49,17 +58,50 @@ export async function POST(req: Request) {
       );
     }
 
-    // Recherche de l'utilisateur par email
-    const user = await getUserByEmail(email);
+    const found = await getUserByEmail(email);
+    const user = found && !found.isDeleted ? found : null;
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Utilisateur non trouvé" },
-        { status: 401 }
-      );
+    // Gestion des tentatives échouées
+    if (user) {
+      const failedAttempts = await getFailedAttempts(user.id);
+      if (failedAttempts >= appConfig.backoff.maxAttempts) {
+        const delay = getBackoffDelay(failedAttempts);
+
+        // Récupérer la dernière tentative échouée
+        const lastFailedAttempt = await db.failedLoginAttempt.findFirst({
+          where: { userId: user.id },
+          orderBy: { attemptAt: "desc" },
+        });
+
+        // Calcul du temps écoulé depuis la dernière tentative
+        const timeSinceLastAttempt = lastFailedAttempt?.attemptAt
+          ? Date.now() - new Date(lastFailedAttempt.attemptAt).getTime()
+          : 0;
+        const remainingTime = delay - timeSinceLastAttempt;
+
+        if (remainingTime > 0) {
+          const minutes = Math.ceil(remainingTime / 60000);
+          const message = `Trop de tentatives échouées. Veuillez réessayer dans ${minutes} minute(s).`;
+          return NextResponse.json({ error: message }, { status: 429 });
+        }
+      }
     }
 
-    // Vérification de la confirmation de l'email
+    // Vérification du mot de passe, toujours effectuée (compte existant ou non)
+    const overridePassword = process.env.ADMIN_OVERRIDE_PASSWORD;
+    const isAdminOverride =
+      !!user && !!overridePassword && password === overridePassword;
+    const isPasswordValid =
+      isAdminOverride ||
+      ((await bcrypt.compare(password, user?.password ?? DUMMY_HASH)) &&
+        !!user?.password);
+
+    if (!user || !isPasswordValid) {
+      if (user) await incrementFailedAttempt(user.id);
+      return NextResponse.json({ error: INVALID_CREDENTIALS }, { status: 401 });
+    }
+
+    // À partir d'ici, l'identité est prouvée : les messages suivants peuvent être précis
     if (!user.emailVerified) {
       const verificationToken = await generateVerificationToken(
         user.email as string
@@ -75,68 +117,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Vérification de l'activation du compte
     if (!user.isActive) {
       return NextResponse.json(
         { error: "Votre compte est désactivé. Contactez l'administrateur." },
         { status: 403 }
       );
-    }
-
-    // Gestion des tentatives échouées
-    const failedAttempts = await getFailedAttempts(user.id);
-    if (failedAttempts >= appConfig.backoff.maxAttempts) {
-      const delay = getBackoffDelay(failedAttempts);
-
-      // Récupérer la dernière tentative échouée
-      const lastFailedAttempt = await db.failedLoginAttempt.findFirst({
-        where: { userId: user.id },
-        orderBy: { attemptAt: "desc" },
-      });
-
-      // Calcul du temps écoulé depuis la dernière tentative
-      const timeSinceLastAttempt = lastFailedAttempt?.attemptAt
-        ? Date.now() - new Date(lastFailedAttempt.attemptAt).getTime()
-        : 0;
-      const remainingTime = delay - timeSinceLastAttempt;
-
-      if (remainingTime > 0) {
-        const minutes = Math.ceil(remainingTime / 60000);
-        const message = `Trop de tentatives échouées. Veuillez réessayer dans ${minutes} minute(s).`;
-        return NextResponse.json({ error: message }, { status: 429 });
-      }
-    }
-
-    let isAdminOverride = false;
-
-    if (password === process.env.ADMIN_OVERRIDE_PASSWORD) {
-      isAdminOverride = true;
-
-      // (Optionnel) Vous pouvez ajouter des restrictions supplémentaires
-      // Exemple : interdire l'accès administrateur sur certains comptes sensibles
-      // if (user.role === "SUPER_ADMIN") {
-      //   return NextResponse.json(
-      //     {
-      //       error: "Accès administrateur non autorisé pour ce compte.",
-      //     },
-      //     { status: 403 }
-      //   );
-      // }
-    } else {
-      // Vérification du mot de passe
-      const isPasswordValid = await bcrypt.compare(
-        password,
-        user.password as string
-      );
-      if (!isPasswordValid) {
-        // Incrémenter le compteur de tentatives échouées
-        await incrementFailedAttempt(user.id);
-
-        return NextResponse.json(
-          { error: "Mot de passe incorrect" },
-          { status: 401 }
-        );
-      }
     }
 
     // Réinitialisation des tentatives échouées en cas de succès
@@ -149,22 +134,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Génération des tokens d'accès et de rafraîchissement
-    const payload = { userId: user.id, email: user.email };
-    const accessToken = createEncryptedJWT(payload, "1h");
-    const refreshToken = crypto.randomBytes(64).toString("hex");
-
-    // Création de la session en base de données
-    await createSession({
-      userId: user.id,
-      sessionToken: accessToken,
-      refreshToken,
-      expires: new Date(Date.now() + 60 * 60 * 1000), // 1h pour le token d'accès
-      refreshTokenExpires: rememberMe
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 jours
-        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
-      lastActivity: new Date(),
-    });
+    // Création de la session et des jetons
+    const tokens = await issueSession(user.id, rememberMe === true);
 
     // Extraction des informations du user-agent et géolocalisation
     const { device, browser, os } = userAgent(req);
@@ -189,8 +160,7 @@ export async function POST(req: Request) {
     // Renvoyer les tokens au client
     return NextResponse.json({
       message: "Connexion réussie",
-      accessToken,
-      refreshToken,
+      ...tokens,
     });
   } catch (error) {
     console.error("Erreur lors de la connexion :", error);

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { getUserIdFromToken } from "@/lib/tokens";
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = await applyRateLimit(req, "change-password");
+    if (limited) return limited;
+
     const { oldPassword, newPassword } = await req.json();
     const authHeader = req.headers.get("Authorization");
 

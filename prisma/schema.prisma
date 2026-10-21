@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 generator client {
@@ -8,7 +9,9 @@ generator client {
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
+  WEBMASTER
   USER
   ASSOCIATION
 }
@@ -73,89 +76,89 @@ enum NigerRegion {
 }
 
 enum NigerDepartment {
-    // Région d'Agadez
-    ARLIT
-    BILMA
-    IFEROUANE
-    INGALL
-    TCHIROZERINE
-    ADERBISSINAT
+  // Région d'Agadez
+  ARLIT
+  BILMA
+  IFEROUANE
+  INGALL
+  TCHIROZERINE
+  ADERBISSINAT
 
-    // Région de Diffa
-    DIFFA
-    MAINE_SOROA
-    NGUIGMI
-    GOUDOUMARIA
-    BOSSO
+  // Région de Diffa
+  DIFFA
+  MAINE_SOROA
+  NGUIGMI
+  GOUDOUMARIA
+  BOSSO
 
-    // Région de Dosso
-    BOBOYE
-    DOGONDOUTCHI
-    DOSSO
-    GAYA
-    LOGA
-    TIBIRI
-    DIOUNDIOU
-    FALMEY
+  // Région de Dosso
+  BOBOYE
+  DOGONDOUTCHI
+  DOSSO
+  GAYA
+  LOGA
+  TIBIRI
+  DIOUNDIOU
+  FALMEY
 
-    // Région de Maradi
-    AGUIE
-    DAKORO
-    GUIDAN_ROUMDJI
-    MADAROUNFA
-    MAYAHI
-    TESSAOUA
-    BERMO
-    GAZAOUA
+  // Région de Maradi
+  AGUIE
+  DAKORO
+  GUIDAN_ROUMDJI
+  MADAROUNFA
+  MAYAHI
+  TESSAOUA
+  BERMO
+  GAZAOUA
 
-    // Région de Niamey (Communauté Urbaine)
-    NIAMEY_I
-    NIAMEY_II
-    NIAMEY_III
-    NIAMEY_IV
-    NIAMEY_V
+  // Région de Niamey (Communauté Urbaine)
+  NIAMEY_I
+  NIAMEY_II
+  NIAMEY_III
+  NIAMEY_IV
+  NIAMEY_V
 
-    // Région de Tahoua
-    ABALAK
-    BIRNI_NKONNI
-    BOUZA
-    ILLELA
-    KEITA
-    MADAOUA
-    TAHOUA
-    TCHINTABARADEN
-    BAGAROUA
-    MALBAZA
-    TASSARA
-    TILLIA
+  // Région de Tahoua
+  ABALAK
+  BIRNI_NKONNI
+  BOUZA
+  ILLELA
+  KEITA
+  MADAOUA
+  TAHOUA
+  TCHINTABARADEN
+  BAGAROUA
+  MALBAZA
+  TASSARA
+  TILLIA
 
-    // Région de Tillabéri
-    FILINGUE
-    KOLLO
-    OUALLAM
-    SAY
-    TERA
-    TILLABERI
-    ABALA
-    AYEROU
-    BALLEYARA
-    BANIBANGOU
-    BANKILARE
-    GOTHEYE
-    TORODI
+  // Région de Tillabéri
+  FILINGUE
+  KOLLO
+  OUALLAM
+  SAY
+  TERA
+  TILLABERI
+  ABALA
+  AYEROU
+  BALLEYARA
+  BANIBANGOU
+  BANKILARE
+  GOTHEYE
+  TORODI
 
-    // Région de Zinder
-    GOURE
-    MAGARIA
-    MATAMEYE
-    MIRRIAH
-    TANOUT
-    ZINDER
-    BELBEDJI
-    DAMAGARAM_TAKAYA
-    DUNGASS
-    KANTCHE
-    TAKEITA
+  // Région de Zinder
+  GOURE
+  MAGARIA
+  MATAMEYE
+  MIRRIAH
+  TANOUT
+  ZINDER
+  BELBEDJI
+  DAMAGARAM_TAKAYA
+  DUNGASS
+  KANTCHE
+  TAKEITA
 }
 
 enum LocationType {
@@ -203,22 +206,22 @@ model User {
   blogs                 Blog[]
   blogPosts             BlogPost[]
   graduateProfile       Jeune?
-  actualitesCreated     Actualite[] @relation("ActualiteCreatedBy")
-  actualitesUpdated     Actualite[] @relation("ActualiteUpdatedBy")
-  actualitesDeleted     Actualite[] @relation("ActualiteDeletedBy")
-  articlesCreated      Article[]   @relation("ArticleCreatedBy")
-  articlesUpdated      Article[]   @relation("ArticleUpdatedBy")
-  articlesDeleted      Article[]   @relation("ArticleDeletedBy")
-  projetsCreated       Projet[]    @relation("ProjetCreatedBy")
-  projetsUpdated       Projet[]    @relation("ProjetUpdatedBy")
-  projetsDeleted       Projet[]    @relation("ProjetDeletedBy")
-  mediasCreated        Media[]     @relation("MediaCreatedBy")
-  mediasUpdated        Media[]     @relation("MediaUpdatedBy")
-  mediasDeleted        Media[]     @relation("MediaDeletedBy")
-  association          Association?
-  associationsCreated  Association[] @relation("AssociationCreatedBy")
-  associationsUpdated  Association[] @relation("AssociationUpdatedBy")
-  associationsDeleted  Association[] @relation("AssociationDeletedBy")
+  actualitesCreated     Actualite[]            @relation("ActualiteCreatedBy")
+  actualitesUpdated     Actualite[]            @relation("ActualiteUpdatedBy")
+  actualitesDeleted     Actualite[]            @relation("ActualiteDeletedBy")
+  articlesCreated       Article[]              @relation("ArticleCreatedBy")
+  articlesUpdated       Article[]              @relation("ArticleUpdatedBy")
+  articlesDeleted       Article[]              @relation("ArticleDeletedBy")
+  projetsCreated        Projet[]               @relation("ProjetCreatedBy")
+  projetsUpdated        Projet[]               @relation("ProjetUpdatedBy")
+  projetsDeleted        Projet[]               @relation("ProjetDeletedBy")
+  mediasCreated         Media[]                @relation("MediaCreatedBy")
+  mediasUpdated         Media[]                @relation("MediaUpdatedBy")
+  mediasDeleted         Media[]                @relation("MediaDeletedBy")
+  association           Association?
+  associationsCreated   Association[]          @relation("AssociationCreatedBy")
+  associationsUpdated   Association[]          @relation("AssociationUpdatedBy")
+  associationsDeleted   Association[]          @relation("AssociationDeletedBy")
 }
 
 model Account {
@@ -241,15 +244,27 @@ model Account {
 }
 
 model Session {
-  id                  String   @id @default(cuid())
-  userId              String
-  sessionToken        String   @unique
-  refreshToken        String   @unique
-  expires             DateTime
-  refreshTokenExpires DateTime
-  lastActivity        DateTime
+  id                   String    @id @default(cuid())
+  userId               String
+  sessionToken         String    @unique
+  refreshToken         String    @unique
+  // Refresh token remplacé lors de la dernière rotation (détection de réutilisation)
+  previousRefreshToken String?   @unique
+  refreshRotatedAt     DateTime?
+  expires              DateTime
+  refreshTokenExpires  DateTime
+  lastActivity         DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Compteurs de limitation de débit (persistants, partagés entre instances)
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+
+  @@map("rate_limits")
 }
 
 model VerificationToken {
@@ -382,9 +397,9 @@ model BlogPost {
 }
 
 model Diplome {
-  id              String            @id @default(cuid())
-  name            String            @unique
-  isDeleted       Boolean           @default(false)
+  id              String      @id @default(cuid())
+  name            String      @unique
+  isDeleted       Boolean     @default(false)
   deletedAt       DateTime?
   deletedBy       String?
   education       Education[]
@@ -392,22 +407,22 @@ model Diplome {
 }
 
 model Actualite {
-  id          String    @id @default(cuid())
-  title       String    @db.VarChar(255)
-  description String?   @db.Text
-  link        String?   @db.VarChar(500)
-  image       String?   @db.VarChar(500)
-  gallery     Json?     // [ "/api/uploads/actualites/gallery/{id}/f1.jpg", ... ]
-  isDeleted   Boolean   @default(false)
-  deletedAt   DateTime?
-  deletedBy   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  createdByUser User?   @relation("ActualiteCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  updatedByUser User?   @relation("ActualiteUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  deletedByUser User?   @relation("ActualiteDeletedBy", fields: [deletedBy], references: [id], onDelete: SetNull)
+  id            String    @id @default(cuid())
+  title         String    @db.VarChar(255)
+  description   String?   @db.Text
+  link          String?   @db.VarChar(500)
+  image         String?   @db.VarChar(500)
+  gallery       Json? // [ "/api/uploads/actualites/gallery/{id}/f1.jpg", ... ]
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
+  deletedBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  createdByUser User?     @relation("ActualiteCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ActualiteUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("ActualiteDeletedBy", fields: [deletedBy], references: [id], onDelete: SetNull)
 
   @@map("actualites")
 }
@@ -418,7 +433,7 @@ model Article {
   description   String?   @db.Text
   link          String?   @db.VarChar(500)
   image         String?   @db.VarChar(500)
-  gallery       Json?     // [ "/api/uploads/articles/gallery/{id}/f1.jpg", ... ]
+  gallery       Json? // [ "/api/uploads/articles/gallery/{id}/f1.jpg", ... ]
   isDeleted     Boolean   @default(false)
   deletedAt     DateTime?
   deletedBy     String?
@@ -439,7 +454,7 @@ model Projet {
   description   String?   @db.Text
   link          String?   @db.VarChar(500)
   image         String?   @db.VarChar(500)
-  gallery       Json?     // [ "/api/uploads/projets/gallery/{id}/f1.jpg", ... ]
+  gallery       Json? // [ "/api/uploads/projets/gallery/{id}/f1.jpg", ... ]
   isDeleted     Boolean   @default(false)
   deletedAt     DateTime?
   deletedBy     String?
@@ -458,7 +473,7 @@ model Media {
   id            String    @id @default(cuid())
   title         String    @db.VarChar(255)
   description   String?   @db.Text
-  gallery       Json?     // [ "/api/uploads/medias/gallery/{id}/f1.jpg", ... ] — photos d'événements
+  gallery       Json? // [ "/api/uploads/medias/gallery/{id}/f1.jpg", ... ] — photos d'événements
   isDeleted     Boolean   @default(false)
   deletedAt     DateTime?
   deletedBy     String?
@@ -474,54 +489,54 @@ model Media {
 }
 
 model Association {
-  id                        String    @id @default(cuid())
-  nomOfficiel               String    @db.VarChar(255)
-  description               String?   @db.Text
-  emailContact              String    @db.VarChar(255)
-  numeroRecepisse           String?   @db.VarChar(120)
-  autoriteReconnaissance    String?   @db.VarChar(255)
-  statutJuridique           String?   @db.VarChar(80)
-  logoPath                  String?   @db.VarChar(500)
-  statutsPath               String?   @db.VarChar(500)
-  reglementInterieurPath    String?   @db.VarChar(500)
-  recepissePath             String?   @db.VarChar(500)
-  pvCreationPath            String?   @db.VarChar(500)
-  nombreMembres             Int?
-  impactSocial              String?   @db.Text
-  dateCreation              DateTime?
-  pays                      String?   @db.VarChar(100)
-  region                    String?   @db.VarChar(100)
-  villeCommune              String?   @db.VarChar(120)
-  quartier                  String?   @db.VarChar(120)
-  adressePhysique           String?   @db.Text
-  telephonePrincipal        String?   @db.VarChar(50)
-  telephoneSecondaire       String?   @db.VarChar(50)
-  emailOfficiel             String?   @db.VarChar(255)
-  siteWeb                   String?   @db.VarChar(500)
-  reseauxSociaux            Json?
-  domaineIntervention       String?   @db.VarChar(120)
-  missionPrincipale         String?   @db.Text
-  objectifsGeneraux         Json?
-  activitesPrincipales      Json?
-  publicCible               String?   @db.VarChar(255)
-  zoneIntervention          String?   @db.VarChar(80)
-  isDeleted                 Boolean   @default(false)
-  deletedAt                 DateTime?
-  deletedBy                 String?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
-  createdBy                 String?
-  updatedBy                 String?
-  userId                    String?   @unique
-  user                      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdByUser             User?     @relation("AssociationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  updatedByUser             User?     @relation("AssociationUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  deletedByUser             User?     @relation("AssociationDeletedBy", fields: [deletedBy], references: [id], onDelete: SetNull)
-  dirigeants                AssociationDirigeant[]
-  membres                   AssociationMembre[]
-  activites                 AssociationActivite[]
-  partenaires               AssociationPartenaire[]
-  documents                 AssociationDocument[]
+  id                     String                  @id @default(cuid())
+  nomOfficiel            String                  @db.VarChar(255)
+  description            String?                 @db.Text
+  emailContact           String                  @db.VarChar(255)
+  numeroRecepisse        String?                 @db.VarChar(120)
+  autoriteReconnaissance String?                 @db.VarChar(255)
+  statutJuridique        String?                 @db.VarChar(80)
+  logoPath               String?                 @db.VarChar(500)
+  statutsPath            String?                 @db.VarChar(500)
+  reglementInterieurPath String?                 @db.VarChar(500)
+  recepissePath          String?                 @db.VarChar(500)
+  pvCreationPath         String?                 @db.VarChar(500)
+  nombreMembres          Int?
+  impactSocial           String?                 @db.Text
+  dateCreation           DateTime?
+  pays                   String?                 @db.VarChar(100)
+  region                 String?                 @db.VarChar(100)
+  villeCommune           String?                 @db.VarChar(120)
+  quartier               String?                 @db.VarChar(120)
+  adressePhysique        String?                 @db.Text
+  telephonePrincipal     String?                 @db.VarChar(50)
+  telephoneSecondaire    String?                 @db.VarChar(50)
+  emailOfficiel          String?                 @db.VarChar(255)
+  siteWeb                String?                 @db.VarChar(500)
+  reseauxSociaux         Json?
+  domaineIntervention    String?                 @db.VarChar(120)
+  missionPrincipale      String?                 @db.Text
+  objectifsGeneraux      Json?
+  activitesPrincipales   Json?
+  publicCible            String?                 @db.VarChar(255)
+  zoneIntervention       String?                 @db.VarChar(80)
+  isDeleted              Boolean                 @default(false)
+  deletedAt              DateTime?
+  deletedBy              String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  createdBy              String?
+  updatedBy              String?
+  userId                 String?                 @unique
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdByUser          User?                   @relation("AssociationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedByUser          User?                   @relation("AssociationUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  deletedByUser          User?                   @relation("AssociationDeletedBy", fields: [deletedBy], references: [id], onDelete: SetNull)
+  dirigeants             AssociationDirigeant[]
+  membres                AssociationMembre[]
+  activites              AssociationActivite[]
+  partenaires            AssociationPartenaire[]
+  documents              AssociationDocument[]
 
   @@map("associations")
 }
@@ -567,20 +582,20 @@ model AssociationMembre {
 }
 
 model AssociationActivite {
-  id             String      @id @default(cuid())
-  associationId  String
-  association    Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
-  nom            String      @db.VarChar(255)
-  description    String?     @db.Text
-  objectif       String?     @db.Text
-  dateDebut      DateTime?
-  dateFin        DateTime?
-  budget         String?     @db.VarChar(120)
-  responsable    String?     @db.VarChar(255)
-  partenaires    String?     @db.Text
-  resultatsImpact String?    @db.Text
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id              String      @id @default(cuid())
+  associationId   String
+  association     Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  nom             String      @db.VarChar(255)
+  description     String?     @db.Text
+  objectif        String?     @db.Text
+  dateDebut       DateTime?
+  dateFin         DateTime?
+  budget          String?     @db.VarChar(120)
+  responsable     String?     @db.VarChar(255)
+  partenaires     String?     @db.Text
+  resultatsImpact String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@map("association_activites")
 }
@@ -601,63 +616,63 @@ model AssociationPartenaire {
 }
 
 model AssociationDocument {
-  id           String      @id @default(cuid())
+  id            String      @id @default(cuid())
   associationId String
-  association  Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
-  type         String      @db.VarChar(60)
-  titre        String?     @db.VarChar(255)
-  path         String      @db.VarChar(500)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  type          String      @db.VarChar(60)
+  titre         String?     @db.VarChar(255)
+  path          String      @db.VarChar(500)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@map("association_documents")
 }
 
 model Education {
-  id                String          @id @default(cuid())
+  id                String  @id @default(cuid())
   graduateId        String
-  graduate          Jeune @relation(fields: [graduateId], references: [id], onDelete: Cascade)
+  graduate          Jeune   @relation(fields: [graduateId], references: [id], onDelete: Cascade)
   institution       String
-  degree            Diplome         @relation(fields: [diplomeId], references: [id], onDelete: Cascade)
+  degree            Diplome @relation(fields: [diplomeId], references: [id], onDelete: Cascade)
   fieldOfStudyId    String
   startYear         Int
   endYear           Int?
-  currentlyEnrolled Boolean         @default(false)
+  currentlyEnrolled Boolean @default(false)
   diplomeId         String
 }
 
 model Jeune {
-  id                 String              @id @default(cuid())
-  userId             String              @unique
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName          String
-  lastName           String
-  sex                Sex?
-  biography          String?
-  cvUrl              String?
-  imageUrl           String?
-  birthDate          DateTime?
-  phone              String?
-  address            String?
-  hasDisability      Boolean?
-  disabilityType     DisabilityType?
-  graduationYear     Int?
-  degree             String?
-  certifications     String[]
-  languages          NigerLanguage[]
-  socialLinks        Json?
-  education          Education[]
-  jobPreferences     LocationType?
-  skills             String[]
-  isDeleted          Boolean             @default(false)
-  deletedAt          DateTime?
-  deletedBy          String?
-  diplomeId          String?
-  diplome            Diplome?            @relation(fields: [diplomeId], references: [id])
-  isVolunteer        Boolean             @default(false)
-  volunteerSince     DateTime?
-  region             NigerRegion?
-  department         NigerDepartment?
-  isNigerien         Boolean?
+  id                        String           @id @default(cuid())
+  userId                    String           @unique
+  user                      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName                 String
+  lastName                  String
+  sex                       Sex?
+  biography                 String?
+  cvUrl                     String?
+  imageUrl                  String?
+  birthDate                 DateTime?
+  phone                     String?
+  address                   String?
+  hasDisability             Boolean?
+  disabilityType            DisabilityType?
+  graduationYear            Int?
+  degree                    String?
+  certifications            String[]
+  languages                 NigerLanguage[]
+  socialLinks               Json?
+  education                 Education[]
+  jobPreferences            LocationType?
+  skills                    String[]
+  isDeleted                 Boolean          @default(false)
+  deletedAt                 DateTime?
+  deletedBy                 String?
+  diplomeId                 String?
+  diplome                   Diplome?         @relation(fields: [diplomeId], references: [id])
+  isVolunteer               Boolean          @default(false)
+  volunteerSince            DateTime?
+  region                    NigerRegion?
+  department                NigerDepartment?
+  isNigerien                Boolean?
   hasProfessionalExperience Boolean?
 }

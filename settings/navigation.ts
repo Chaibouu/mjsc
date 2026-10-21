@@ -1,3 +1,5 @@
+import { ADMIN_ROLES, CONTENT_ROLES, ROLES } from "@/lib/roles";
+
 export interface ChildrenItem {
   title: string;
   path: string;
@@ -29,25 +31,25 @@ export const adminNavigation: NavigationItem[] = [
     title: "Dashboard",
     icon: "material-symbols:dashboard",
     path: "/dashboard",
-    allowedRoles: ["ADMIN", "USER"],
+    allowedRoles: [...CONTENT_ROLES, ROLES.USER],
   },
   {
     title: "Associations",
     icon: "material-symbols:home-work",
     path: "/association",
-    allowedRoles: ["ADMIN", "ASSOCIATION"],
+    allowedRoles: [...ADMIN_ROLES, ROLES.ASSOCIATION],
   },
   {
     title: "Profile",
     icon: "solar:user-bold-duotone",
     path: "/profil",
-    allowedRoles: ["ADMIN", "USER"],
+    allowedRoles: [...CONTENT_ROLES, ROLES.USER],
   },
   {
     title: "Utilisateurs",
     icon: "solar:users-group-two-rounded-bold-duotone",
     path: "/users",
-    allowedRoles: ["ADMIN"],
+    allowedRoles: [...ADMIN_ROLES],
   },
   {
     title: "Portail Web",
@@ -58,31 +60,31 @@ export const adminNavigation: NavigationItem[] = [
       {
         title: "Articles",
         path: "/portail/articles",
-        allowedRoles: ["ADMIN","USER"],
+        allowedRoles: [...CONTENT_ROLES],
       },
       {
         title: "Actualités",
         path: "/portail/actualites",
-        allowedRoles: ["ADMIN"],
+        allowedRoles: [...CONTENT_ROLES],
       },
       {
         title: "Projets",
         path: "/portail/projets",
-        allowedRoles: ["ADMIN"],
+        allowedRoles: [...CONTENT_ROLES],
       },
       {
         title: "Médias",
         path: "/portail/medias",
-        allowedRoles: ["ADMIN"],
+        allowedRoles: [...CONTENT_ROLES],
       },
     ],
-    allowedRoles: ["ADMIN"],
+    allowedRoles: [...CONTENT_ROLES],
   },
   {
     title: "Paramètres",
     icon: "material-symbols:settings",
     path: "/dashboard/settings",
-    allowedRoles: ["ADMIN"],
+    allowedRoles: [...ADMIN_ROLES],
   },
 ];
 
@@ -126,8 +128,30 @@ export const menuItems: MenuItem[] = [
       }
     ]
   },
-  { href: "/jeunesse", label: "Jeunesse" },
-  { href: "/sports", label: "Sports" },
+  {
+    href: "/secteurs",
+    label: "Secteurs",
+    children: [
+      {
+        title: "Jeunesse",
+        href: "/jeunesse",
+        description: "Programmes, opportunités et engagement des jeunes",
+        icon: "Users"
+      },
+      {
+        title: "Sports",
+        href: "/sports",
+        description: "Fédérations, compétitions et infrastructures sportives",
+        icon: "Trophy"
+      },
+      {
+        title: "Culture",
+        href: "/culture",
+        description: "Arts, patrimoine et événements culturels",
+        icon: "Palette"
+      }
+    ]
+  },
   { href: "/partenaire", label: "Partenaires" },
   { href: "/galerie", label: "Galerie" },
   { href: "/contact", label: "Contact" },

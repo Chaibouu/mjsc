@@ -1,18 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Build autonome utilisé par l'image Docker (.next/standalone)
+    output: 'standalone',
+
     // Optimisations pour Next.js 15
     experimental: {
         // Amélioration des performances
         optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
-        // Amélioration du bundling
-        turbo: {
-            rules: {
-                '*.svg': {
-                    loaders: ['@svgr/webpack'],
-                    as: '*.js',
-                },
-            },
-        },
     },
 
     // Configuration des images

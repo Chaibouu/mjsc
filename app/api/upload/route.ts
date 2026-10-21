@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadFromFormData, validateFile } from "@/lib/upload";
 import { handleApiError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { requireAdminApi } from "@/lib/api-users-auth";
 
 /**
- * API route pour uploader des fichiers
+ * API route pour uploader des fichiers (réservé aux ADMIN)
  * POST /api/upload
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdminApi();
+    if (!auth.ok) return auth.response;
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 
