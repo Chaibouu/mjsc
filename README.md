@@ -7,7 +7,7 @@ Site public et back-office du Ministère de la Jeunesse, des Sports et de la Cul
 - **Framework** : Next.js 15 (App Router), React 19
 - **Base de données** : PostgreSQL + Prisma 5
 - **Authentification** : JWT RS256 chiffrés AES-256-GCM, refresh tokens stockés en base
-- **Stockage des fichiers** : Cloudflare R2 pour les documents des associations, disque local (`uploads/`) pour le reste
+- **Stockage des fichiers** : Cloudflare R2 (documents des associations, photos de profil, images des articles, actualités, projets et médias), disque local (`uploads/`) si R2 n'est pas configuré
 - **UI** : Tailwind CSS, Radix UI / shadcn/ui, Framer Motion
 - **Validation** : Zod — **Formulaires** : React Hook Form — **Emails** : Nodemailer
 - **Tests** : Jest
@@ -76,7 +76,7 @@ Les règles sont centralisées dans [lib/roles.ts](./lib/roles.ts).
 | Ressource | Lecture | Création / modification / suppression |
 |---|---|---|
 | Actualités, articles, projets, médias | Public | `SUPER_ADMIN`, `ADMIN`, `WEBMASTER` |
-| Diplômes, upload générique (`/api/upload`) | Public / — | `SUPER_ADMIN`, `ADMIN` |
+| Diplômes | Public / — | `SUPER_ADMIN`, `ADMIN` |
 | Utilisateurs (`/api/users`) | `SUPER_ADMIN`, `ADMIN` | voir hiérarchie ci-dessous |
 | Associations et sous-ressources | `SUPER_ADMIN`, `ADMIN` ou compte lié | `SUPER_ADMIN`, `ADMIN` ou compte lié |
 | Logo d'association | Public | `SUPER_ADMIN`, `ADMIN` ou compte lié |
@@ -107,13 +107,29 @@ Les fichiers confidentiels des associations sont servis par `/api/uploads/associ
 
 ## Stockage des fichiers (Cloudflare R2)
 
-Les fichiers des associations passent par [lib/storage.ts](./lib/storage.ts) :
+Tous les fichiers envoyés (associations, photos de profil, images des articles, actualités, projets et médias) passent par [lib/storage.ts](./lib/storage.ts) :
 
-- avec les variables `R2_*` renseignées, ils sont écrits dans le bucket R2 (privé) sous la clé `associations/{id}/{type}/{fichier}` ;
-- sans R2, ils sont écrits dans `uploads/associations/...` ;
+- avec les variables `R2_*` renseignées, ils sont écrits dans le bucket R2 (privé) ;
+- sans R2, ils sont écrits dans `uploads/` ;
 - en lecture, si un fichier est absent de R2, il est recherché sur le disque local (fichiers envoyés avant la migration).
 
-Le bucket doit rester **privé** : l'accès passe toujours par l'API, qui vérifie les droits.
+La clé reprend le chemin public : l'image `/api/uploads/articles/main/{id}.png` est stockée sous `articles/main/{id}.png`. Les chemins déjà enregistrés en base restent donc valides.
+
+| Contenu | Clé | Accès |
+|---|---|---|
+| Photo de profil | `profiles/{userId}.{ext}` | public, via [lib/serve-image.ts](./lib/serve-image.ts) |
+| Image principale | `{actualites,articles,projets}/main/{id}.{ext}` | public |
+| Galerie | `{actualites,articles,projets,medias}/gallery/{id}/{fichier}` | public |
+| Associations | `associations/{id}/{type}/{fichier}` | logo public, le reste réservé |
+
+Le bucket doit rester **privé** : l'accès passe toujours par l'API, qui vérifie les droits pour les documents des associations.
+
+Pour copier dans R2 les fichiers encore présents dans `uploads/` (ils ne sont pas supprimés) :
+
+```bash
+npm run uploads:migrate -- --dry   # liste ce qui manque dans le bucket
+npm run uploads:migrate            # copie
+```
 
 ## Scripts
 
@@ -150,3 +166,14 @@ docker compose --profile app up -d   # base + application
 ```
 
 L'image utilise la sortie `standalone` de Next.js. Le dossier `/app/uploads` est un volume (`uploads`) pour que les fichiers locaux survivent aux redéploiements. Les variables sont lues depuis `.env`.
+
+## Déploiement Vercel
+
+Le build (`next build`) passe tel quel ; Vercel ignore la sortie `standalone`. À régler dans le projet Vercel :
+
+- **Variables** : reprendre celles du `.env`, dont les `R2_*` (obligatoires : le disque de Vercel est en lecture seule, sans R2 aucun envoi de fichier ne fonctionne). `NEXT_PUBLIC_APP_URL` et `NEXTAUTH_URL` = l'adresse Vercel ; `NEXT_PUBLIC_APP_URL` est intégrée au build, la définir avant le premier déploiement. `RSA_PRIVATE_KEY` / `RSA_PUBLIC_KEY` se collent telles quelles (multilignes).
+- **Région des fonctions** : `iad1` (Washington), proche de la base Neon (us-east-2).
+- **Protection des prévisualisations** : les actions serveur et le middleware appellent l'API du site par son URL ; si la « Vercel Authentication » est active sur les prévisualisations, ces appels sont bloqués.
+- **Migrations** : non lancées par Vercel (et `prisma/migrations` est ignoré par git). Lancer `npx prisma migrate deploy` sur Neon avant un déploiement qui modifie le schéma.
+
+Envoi des images : Vercel refuse les requêtes de plus de 4,5 Mo. Les images sont réduites dans le navigateur (1920 px, voir [lib/image-resize.ts](./lib/image-resize.ts)) et un formulaire refuse plus de 4 Mo d'images par enregistrement.

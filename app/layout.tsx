@@ -9,6 +9,7 @@ import { unstable_rethrow } from "next/navigation";
 import { ErrorBoundary } from "@/components/error-boundary";
 import NextTopLoader from 'nextjs-toploader';
 import appConfig from "@/settings";
+import ReactQueryProvider from "./ReactQueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -39,12 +40,14 @@ export default async function RootLayout({
         <ErrorBoundary>
           <Suspense fallback={<div>Loading...</div>}>
             <SessionProvider user={user?.user}>
+            <ReactQueryProvider>
             <NextTopLoader
             color={appConfig.secondaryColor}
             showSpinner={false}
             />
               {children}
               <Toaster />
+            </ReactQueryProvider>
             </SessionProvider>
           </Suspense>
         </ErrorBoundary>

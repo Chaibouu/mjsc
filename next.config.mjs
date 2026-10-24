@@ -7,6 +7,11 @@ const nextConfig = {
     experimental: {
         // Amélioration des performances
         optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+        // Les formulaires envoient leurs images via des actions serveur (1 Mo par défaut).
+        // 4,5 Mo = limite des requêtes sur Vercel ; le formulaire bloque au-delà de 4 Mo d'images.
+        serverActions: {
+            bodySizeLimit: '4.5mb',
+        },
     },
 
     // Configuration des images

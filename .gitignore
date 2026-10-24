@@ -42,3 +42,6 @@ next-env.d.ts
 /uploads/
 .neon
 .env.neon
+
+# Projet séparé (référence), à ne pas envoyer avec MJS
+/siteCAMA/

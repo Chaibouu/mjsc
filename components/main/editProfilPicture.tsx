@@ -14,6 +14,7 @@ import type { User } from "@prisma/client";
 import { AVATAR_PATHS } from "@/settings/avatars";
 import { updateProfilePictureAvatar, updateProfilePictureFile } from "@/actions/updateProfilePicture";
 import { Upload, Check } from "lucide-react";
+import { shrinkImage } from "@/lib/image-resize";
 
 type EditProfilPictureProps = {
   isOpen: boolean;
@@ -48,13 +49,15 @@ export function EditProfilPicture({
     if (preview) URL.revokeObjectURL(preview);
   }, [preview]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(f.type)) {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(picked.type)) {
       setError("Format accepté : JPEG, PNG, WebP, GIF.");
       return;
     }
+    // Réduite avant le contrôle de taille : une photo de téléphone passe sous 2 Mo
+    const f = await shrinkImage(picked);
     if (f.size > 2 * 1024 * 1024) {
       setError("Image trop volumineuse (max 2 Mo).");
       return;

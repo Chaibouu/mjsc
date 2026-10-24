@@ -18,7 +18,7 @@ async function getUserId(req: NextRequest) {
  * POST /api/profile/picture
  * FormData :
  * - "avatar" (string) : chemin d'un avatar prédéfini ex. /avatar/man.png
- * - "file" (File) : image depuis l'appareil → stockée en /uploads/profiles/{userId}.ext, remplace l'ancienne
+ * - "file" (File) : image depuis l'appareil → stockée sous profiles/{userId}.ext (R2 ou disque local), remplace l'ancienne
  */
 export async function POST(req: NextRequest) {
   try {

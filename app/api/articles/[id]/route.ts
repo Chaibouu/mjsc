@@ -119,7 +119,8 @@ export async function PUT(
     };
     if (parsed.data.title !== undefined) data.title = parsed.data.title;
     if (parsed.data.description !== undefined) data.description = parsed.data.description ?? null;
-    if (parsed.data.link !== undefined) data.link = parsed.data.link ?? null;
+    // Un champ "link" envoyé vide efface le lien existant
+    if (formData.has("link")) data.link = link;
 
     const updated = await db.article.update({
       where: { id },

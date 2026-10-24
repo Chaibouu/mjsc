@@ -1,97 +1,40 @@
-"use server";
-
+'use server'
 import { makeAuthenticatedRequest } from "./makeAuthenticatedRequest";
+
+// Même organisation que les autres ressources : une action par opération, chacune passant par
+// makeAuthenticatedRequest (jetons et rafraîchissement gérés automatiquement).
 
 const BASE = `${process.env.NEXT_PUBLIC_APP_URL}/api/articles`;
 
-async function handleResponse<T>(res: unknown, errMessage: string): Promise<T> {
-  if (res && typeof res === "object" && "error" in res) {
-    throw new Error((res as { error: string }).error);
-  }
+export type ActionResult<T = unknown> = { message?: string; error?: string; data?: T };
+
+/** Rend la réponse transmissible au client (objet simple), erreurs comprises. */
+async function toResult<T>(res: unknown): Promise<ActionResult<T>> {
   if (res instanceof Response) {
-    const d = await res.json();
-    throw new Error((d as { error?: string }).error ?? "Erreur serveur");
+    const body = await res.json().catch(() => ({}));
+    return { error: (body as { error?: string }).error ?? "Erreur serveur" };
   }
-  return JSON.parse(JSON.stringify(res)) as T;
+  return JSON.parse(JSON.stringify(res ?? {}));
 }
 
-export async function getArticles() {
-  try {
-    const res = await makeAuthenticatedRequest(`${BASE}`, "GET");
-    const data = await handleResponse<unknown>(res, "Échec de la récupération des articles");
-    const list = Array.isArray(data) ? data : [];
-    return list;
-  } catch (e) {
-    throw new Error(
-      e instanceof Error ? e.message : "Échec de la récupération des articles"
-    );
-  }
-}
+export const fetchArticles = async () => {
+  const res = await makeAuthenticatedRequest(BASE, "GET");
+  const result = await toResult(res);
+  // La route renvoie directement le tableau des articles
+  return Array.isArray(result) ? result : [];
+};
 
-export async function getArticleById(id: string) {
-  try {
-    const res = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}`,
-      "GET"
-    );
-    return handleResponse(res, "Échec de la récupération de l'article");
-  } catch (e) {
-    throw new Error(
-      e instanceof Error ? e.message : "Échec de la récupération de l'article"
-    );
-  }
-}
+export const postArticle = async (body: FormData) => {
+  const res = await makeAuthenticatedRequest(BASE, "POST", body);
+  return toResult(res);
+};
 
-export async function deleteArticle(id: string) {
-  try {
-    const res = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}`,
-      "DELETE"
-    );
-    return handleResponse(res, "Échec de la suppression de l'article");
-  } catch (e) {
-    throw new Error(
-      e instanceof Error ? e.message : "Échec de la suppression de l'article"
-    );
-  }
-}
+export const putArticle = async ({ body, id }: { body: FormData; id: string }) => {
+  const res = await makeAuthenticatedRequest(`${BASE}/${encodeURIComponent(id)}`, "PUT", body);
+  return toResult(res);
+};
 
-export async function createArticle(formData: FormData) {
-  try {
-    const res = await makeAuthenticatedRequest(`${BASE}`, "POST", formData);
-    if (res && typeof res === "object" && "error" in res) {
-      throw new Error((res as { error: string }).error);
-    }
-    if (res instanceof Response) {
-      const d = await res.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(res)) as { data?: unknown; message?: string };
-  } catch (e) {
-    throw new Error(
-      e instanceof Error ? e.message : "Échec de la création de l'article"
-    );
-  }
-}
-
-export async function updateArticle(id: string, formData: FormData) {
-  try {
-    const res = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}`,
-      "PUT",
-      formData
-    );
-    if (res && typeof res === "object" && "error" in res) {
-      throw new Error((res as { error: string }).error);
-    }
-    if (res instanceof Response) {
-      const d = await res.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(res)) as { data?: unknown; message?: string };
-  } catch (e) {
-    throw new Error(
-      e instanceof Error ? e.message : "Échec de la mise à jour de l'article"
-    );
-  }
-}
+export const deleteArticle = async (id: string) => {
+  const res = await makeAuthenticatedRequest(`${BASE}/${encodeURIComponent(id)}`, "DELETE");
+  return toResult(res);
+};
