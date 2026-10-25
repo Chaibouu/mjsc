@@ -12,6 +12,7 @@ import { postMedia } from '@/actions/medias';
 import { notify } from '@/lib/notify';
 import { GalleryInput } from '../ImageFields';
 import { FormActions } from '../FormActions';
+import { showSuccess } from '@/components/success-overlay';
 
 interface AddMediaProps {
     onClose: () => void; // Fonction pour fermer le dialog
@@ -30,7 +31,7 @@ const AddMedia = ({ onClose }: AddMediaProps) => {
                 return;
             }
             queryClient.invalidateQueries({ queryKey: ['medias'] });
-            notify.success(data.message ?? "Média créé avec succès");
+            showSuccess({ title: "Média ajouté", message: "Le média a bien été enregistré." });
             onClose(); // Fermer le dialog après succès
         },
         onError: (error: Error) => notify.error(error.message),

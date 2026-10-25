@@ -12,6 +12,7 @@ import { postArticle } from '@/actions/articles';
 import { notify } from '@/lib/notify';
 import { GalleryInput, MainImageInput } from '../ImageFields';
 import { FormActions } from '../FormActions';
+import { showSuccess } from '@/components/success-overlay';
 
 interface AddArticleProps {
     onClose: () => void; // Fonction pour fermer le dialog
@@ -30,7 +31,7 @@ const AddArticle = ({ onClose }: AddArticleProps) => {
                 return;
             }
             queryClient.invalidateQueries({ queryKey: ['articles'] });
-            notify.success(data.message ?? "Article créé avec succès");
+            showSuccess({ title: "Article ajouté", message: "L'article a bien été enregistré." });
             onClose(); // Fermer le dialog après succès
         },
         onError: (error: Error) => notify.error(error.message),

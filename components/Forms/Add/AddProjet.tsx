@@ -12,6 +12,7 @@ import { postProjet } from '@/actions/projets';
 import { notify } from '@/lib/notify';
 import { GalleryInput, MainImageInput } from '../ImageFields';
 import { FormActions } from '../FormActions';
+import { showSuccess } from '@/components/success-overlay';
 
 interface AddProjetProps {
     onClose: () => void; // Fonction pour fermer le dialog
@@ -30,7 +31,7 @@ const AddProjet = ({ onClose }: AddProjetProps) => {
                 return;
             }
             queryClient.invalidateQueries({ queryKey: ['projets'] });
-            notify.success(data.message ?? "Projet créé avec succès");
+            showSuccess({ title: "Projet ajouté", message: "Le projet a bien été enregistré." });
             onClose(); // Fermer le dialog après succès
         },
         onError: (error: Error) => notify.error(error.message),

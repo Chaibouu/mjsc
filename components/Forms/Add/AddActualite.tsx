@@ -12,6 +12,7 @@ import { postActualite } from '@/actions/actualites';
 import { notify } from '@/lib/notify';
 import { GalleryInput, MainImageInput } from '../ImageFields';
 import { FormActions } from '../FormActions';
+import { showSuccess } from '@/components/success-overlay';
 
 interface AddActualiteProps {
     onClose: () => void; // Fonction pour fermer le dialog
@@ -30,7 +31,7 @@ const AddActualite = ({ onClose }: AddActualiteProps) => {
                 return;
             }
             queryClient.invalidateQueries({ queryKey: ['actualites'] });
-            notify.success(data.message ?? "Actualité créée avec succès");
+            showSuccess({ title: "Actualité ajoutée", message: "L'actualité a bien été enregistrée." });
             onClose(); // Fermer le dialog après succès
         },
         onError: (error: Error) => notify.error(error.message),
