@@ -58,14 +58,18 @@ export type GetUsersOptions = {
   page?: number;
   limit?: number;
   search?: string;
+  role?: Role;
+  status?: "active" | "inactive";
 };
 
 export async function getUsers(options: GetUsersOptions = {}) {
-  const { page = 1, limit = 50, search } = options;
+  const { page = 1, limit = 50, search, role, status } = options;
   const skip = (page - 1) * limit;
 
   const where = {
     isDeleted: false,
+    ...(role ? { role } : {}),
+    ...(status ? { isActive: status === "active" } : {}),
     ...(search?.trim()
       ? {
           OR: [
@@ -94,6 +98,8 @@ export async function getUsers(options: GetUsersOptions = {}) {
         profilePicture: true,
         firstName: true,
         lastName: true,
+        phone: true,
+        emailVerified: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -128,22 +134,35 @@ export async function updateUser(userId: string, data: UpdateUserData) {
     update.isActive = isActive;
     update.deactivatedAt = isActive ? null : new Date();
   }
-  return db.user.update({
+  const user = await db.user.update({
     where: { id: userId },
     data: update as Parameters<typeof db.user.update>[0]["data"],
   });
+  // Compte désactivé : ses sessions ouvertes sont fermées
+  if (isActive === false) await db.session.deleteMany({ where: { userId } });
+  return user;
 }
 
+/** Suppression logique : le compte reste en base (isDeleted = true) et ses sessions sont fermées. */
 export async function softDeleteUser(userId: string) {
-  return db.user.update({
-    where: { id: userId },
-    data: { isDeleted: true, isActive: false, deactivatedAt: new Date() },
-  });
+  const [user] = await db.$transaction([
+    db.user.update({
+      where: { id: userId },
+      data: { isDeleted: true, isActive: false, deactivatedAt: new Date() },
+    }),
+    db.session.deleteMany({ where: { userId } }),
+  ]);
+  return user;
 }
 
+/** Nouveau mot de passe défini par un administrateur : les sessions ouvertes du compte sont fermées. */
 export async function setUserPassword(userId: string, hashedPassword: string) {
-  return db.user.update({
-    where: { id: userId },
-    data: { password: hashedPassword },
-  });
+  const [user] = await db.$transaction([
+    db.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    }),
+    db.session.deleteMany({ where: { userId } }),
+  ]);
+  return user;
 }

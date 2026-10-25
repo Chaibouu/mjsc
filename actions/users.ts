@@ -2,143 +2,115 @@
 
 import { makeAuthenticatedRequest } from "./makeAuthenticatedRequest";
 import type { Role } from "@/lib/roles";
+import type { CreateUserValues } from "@/schemas/user";
+
+// Même organisation que les autres ressources : une action par opération, chacune passant par
+// makeAuthenticatedRequest. Les erreurs sont renvoyées dans le résultat (et non levées) pour que
+// leur message reste lisible côté client en production.
 
 const BASE = `${process.env.NEXT_PUBLIC_APP_URL}/api/users`;
 
-export const getUsers = async (params?: {
+export type ActionResult<T = unknown> = { message?: string; error?: string } & T;
+
+export type UserStatusFilter = "active" | "inactive";
+
+export type UserListItem = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string;
+  isActive: boolean;
+  image: string | null;
+  profilePicture: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  emailVerified: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserDetails = UserListItem & {
+  address: string | null;
+  bio: string | null;
+  sexe: string | null;
+  nigerLanguage?: string[];
+};
+
+export type UsersPage = {
+  users: UserListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+export type UpdateUserInput = {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  role?: Role;
+  isActive?: boolean;
+};
+
+/** Rend la réponse transmissible au client (objet simple), erreurs comprises. */
+async function toResult<T>(res: unknown): Promise<ActionResult<Partial<T>>> {
+  if (res instanceof Response) {
+    const body = await res.json().catch(() => ({}));
+    return { error: (body as { error?: string }).error ?? "Erreur serveur" } as ActionResult<Partial<T>>;
+  }
+  return JSON.parse(JSON.stringify(res ?? {}));
+}
+
+const userUrl = (id: string, suffix = "") => `${BASE}/${encodeURIComponent(id)}${suffix}`;
+
+export const getUsers = async (params: {
   page?: number;
   limit?: number;
   search?: string;
-}) => {
-  try {
-    const p = params ?? {};
-    const page = Math.max(1, p.page ?? 1);
-    const limit = Math.min(100, Math.max(1, p.limit ?? 50));
-    const search = typeof p.search === "string" ? p.search : undefined;
-    const qs = new URLSearchParams();
-    qs.set("page", String(page));
-    qs.set("limit", String(limit));
-    if (search?.trim()) qs.set("search", search.trim());
+  role?: Role;
+  status?: UserStatusFilter;
+} = {}) => {
+  const qs = new URLSearchParams();
+  qs.set("page", String(Math.max(1, params.page ?? 1)));
+  qs.set("limit", String(Math.min(100, Math.max(1, params.limit ?? 20))));
+  if (params.search?.trim()) qs.set("search", params.search.trim());
+  if (params.role) qs.set("role", params.role);
+  if (params.status) qs.set("status", params.status);
 
-    const test = await makeAuthenticatedRequest(
-      `${BASE}?${qs.toString()}`,
-      "GET"
-    );
-    if (test && typeof test === "object" && "error" in test) {
-      throw new Error((test as { error: string }).error);
-    }
-    if (test instanceof Response) {
-      const d = await test.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(test));
-  } catch (error: unknown) {
-    throw new Error(
-      error instanceof Error ? error.message : "Échec de la récupération des utilisateurs"
-    );
-  }
+  const res = await makeAuthenticatedRequest(`${BASE}?${qs.toString()}`, "GET");
+  return toResult<UsersPage>(res);
 };
 
-export async function getUserById(id: string) {
-  try {
-    const test = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}`,
-      "GET"
-    );
-    if (test && typeof test === "object" && "error" in test) {
-      throw new Error((test as { error: string }).error);
-    }
-    if (test instanceof Response) {
-      const d = await test.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(test));
-  } catch (error: unknown) {
-    throw new Error(
-      error instanceof Error ? error.message : "Échec de la récupération de l'utilisateur"
-    );
-  }
-}
+export const createUser = async (data: CreateUserValues) => {
+  const res = await makeAuthenticatedRequest(BASE, "POST", data);
+  return toResult<{ user: { id: string; email: string } }>(res);
+};
 
-export async function updateUser(
-  id: string,
-  data: {
-    name?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    address?: string | null;
-    bio?: string | null;
-    role?: Role;
-    isActive?: boolean;
-    sexe?: "MASCULIN" | "FEMININ" | null;
-    nigerLanguage?: string[];
-    image?: string | null;
-    profilePicture?: string | null;
-    headerPicture?: string | null;
-  }
-) {
-  try {
-    const test = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}`,
-      "PATCH",
-      data
-    );
-    if (test && typeof test === "object" && "error" in test) {
-      throw new Error((test as { error: string }).error);
-    }
-    if (test instanceof Response) {
-      const d = await test.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(test));
-  } catch (error: unknown) {
-    throw new Error(
-      error instanceof Error ? error.message : "Échec de la mise à jour de l'utilisateur"
-    );
-  }
-}
+export const getUserById = async (id: string) => {
+  const res = await makeAuthenticatedRequest(userUrl(id), "GET");
+  return toResult<{ user: UserDetails }>(res);
+};
 
-export async function deleteUser(id: string) {
-  try {
-    const test = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}`,
-      "DELETE"
-    );
-    if (test && typeof test === "object" && "error" in test) {
-      throw new Error((test as { error: string }).error);
-    }
-    if (test instanceof Response) {
-      const d = await test.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(test));
-  } catch (error: unknown) {
-    throw new Error(
-      error instanceof Error ? error.message : "Échec de la suppression de l'utilisateur"
-    );
-  }
-}
+export const updateUser = async (id: string, data: UpdateUserInput) => {
+  const res = await makeAuthenticatedRequest(userUrl(id), "PATCH", data);
+  return toResult<{ user: UserDetails }>(res);
+};
 
-export async function updateUserPassword(id: string, newPassword: string) {
-  try {
-    const test = await makeAuthenticatedRequest(
-      `${BASE}/${encodeURIComponent(id)}/password`,
-      "PATCH",
-      { newPassword }
-    );
-    if (test && typeof test === "object" && "error" in test) {
-      throw new Error((test as { error: string }).error);
-    }
-    if (test instanceof Response) {
-      const d = await test.json();
-      throw new Error((d as { error?: string }).error ?? "Erreur serveur");
-    }
-    return JSON.parse(JSON.stringify(test));
-  } catch (error: unknown) {
-    throw new Error(
-      error instanceof Error ? error.message : "Échec de la modification du mot de passe"
-    );
-  }
-}
+/** Suppression logique : le compte passe en isDeleted = true. */
+export const deleteUser = async (id: string) => {
+  const res = await makeAuthenticatedRequest(userUrl(id), "DELETE");
+  return toResult(res);
+};
+
+export const updateUserPassword = async (id: string, newPassword: string) => {
+  const res = await makeAuthenticatedRequest(userUrl(id, "/password"), "PATCH", { newPassword });
+  return toResult(res);
+};
+
+/** Envoie à l'utilisateur un lien de réinitialisation du mot de passe. */
+export const sendUserPasswordReset = async (id: string) => {
+  const res = await makeAuthenticatedRequest(userUrl(id, "/reset-password"), "POST");
+  return toResult(res);
+};

@@ -110,3 +110,54 @@ body,
 .rich-content .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background: #E26E12; pointer-events: none; }
 .rich-content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #9ca3af; float: left; height: 0; pointer-events: none; }
 .rich-content.ProseMirror { outline: none; }
+
+/* Confirmation de succès plein écran (components/success-overlay.tsx) */
+.success-overlay {
+  animation:
+    success-fade-in 200ms ease-out both,
+    success-fade-out 300ms ease-in calc(var(--success-duration, 3200ms) - 300ms) forwards;
+}
+.success-card {
+  animation: success-pop 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.success-check-bg {
+  fill: rgb(3 87 64 / 0.08);
+  transform-origin: center;
+  animation: success-pulse 600ms ease-out 650ms both;
+}
+.success-check-circle {
+  stroke: #035740;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  animation: success-draw 600ms cubic-bezier(0.65, 0, 0.45, 1) 150ms forwards;
+}
+.success-check-mark {
+  stroke: #035740;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+  animation: success-draw 350ms cubic-bezier(0.65, 0, 0.45, 1) 650ms forwards;
+}
+.success-text {
+  animation: success-rise 400ms ease-out 500ms both;
+}
+@keyframes success-fade-in { from { opacity: 0; } }
+@keyframes success-fade-out { to { opacity: 0; } }
+@keyframes success-pop { from { opacity: 0; transform: scale(0.85); } }
+@keyframes success-draw { to { stroke-dashoffset: 0; } }
+@keyframes success-pulse {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes success-rise { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .success-card, .success-check-bg, .success-text { animation: none; }
+  .success-check-circle, .success-check-mark { animation: none; stroke-dashoffset: 0; }
+}

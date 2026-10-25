@@ -1,29 +1,27 @@
 "use client";
 
-import Loader from "@/components/loader";
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  KeyRound,
+  Mail,
+  MoreHorizontal,
+  Pencil,
+  Power,
+  RotateCcw,
+  UserPlus,
+  Search,
+  Trash2,
+  UsersRound,
+  X,
+} from "lucide-react";
+import { ButtonLoader } from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,841 +36,397 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { roleLabels, sexeLabels } from "@/settings/labels";
 import { useSession } from "@/context/SessionContext";
-import { assignableRoles, canManageUser, type Role } from "@/lib/roles";
-import { updateUser, deleteUser, getUserById } from "@/actions/users";
+import { ALL_ROLES, assignableRoles, canManageUser, isRole, type Role } from "@/lib/roles";
+import { roleLabels } from "@/settings/labels";
+import { getUsers, type UserListItem, type UserStatusFilter } from "@/actions/users";
+import { StatusBadge, UserAvatarImage, formatDate, fullName } from "./utilisateurs-ui";
 import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  User,
-  Mail,
-  MoreHorizontal,
-  Eye,
-  Pencil,
-  Trash2,
-  Power,
-  Phone,
-  MapPin,
-  Calendar,
-  ShieldCheck,
-  FileText,
-  Languages,
-  Clock,
-} from "lucide-react";
+  CreateUserDialog,
+  DeleteUserDialog,
+  EditUserDialog,
+  PasswordDialog,
+  ResetPasswordDialog,
+  ToggleActiveDialog,
+  ViewUserDialog,
+} from "./utilisateurs-dialogs";
 
-export type ViewUserFull = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  role: string;
-  isActive: boolean;
-  image: string | null;
-  profilePicture: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  phone: string | null;
-  address: string | null;
-  bio: string | null;
-  sexe: string | null;
-  nigerLanguage?: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+export type { UserListItem };
 
-function displayNameFull(u: { firstName?: string | null; lastName?: string | null; name?: string | null }): string {
-  const parts = [u.firstName, u.lastName].filter(Boolean);
-  if (parts.length) return parts.join(" ").trim();
-  return u.name ?? "—";
+const PAGE_SIZE = 20;
+const ALL = "all";
+
+type Filters = { page: number; search: string; role?: Role; status?: UserStatusFilter };
+
+type DialogKind = "view" | "edit" | "password" | "reset" | "toggle" | "delete";
+// La fenêtre garde son utilisateur après fermeture : son contenu reste affiché pendant l'animation
+type DialogState = { kind: DialogKind; user: UserListItem; open: boolean } | null;
+
+/** Garde l'URL synchronisée (lien partageable) sans relancer le rendu serveur. */
+function syncUrl({ page, search, role, status }: Filters) {
+  const qs = new URLSearchParams();
+  if (page > 1) qs.set("page", String(page));
+  if (search) qs.set("search", search);
+  if (role) qs.set("role", role);
+  if (status) qs.set("status", status);
+  const query = qs.toString();
+  window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
 }
 
-export type UserListItem = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  role: string;
-  isActive: boolean;
-  image: string | null;
-  profilePicture: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-function getProfileImageSrc(path: string | null | undefined, updatedAt?: string | null): string {
-  if (!path) return "/avatar/default-avatar.jpg";
-  const ts = updatedAt ? new Date(updatedAt).getTime() : null;
-  const qs = path.startsWith("/api/uploads/") && ts != null ? `?t=${ts}` : "";
-  const base = process.env.NEXT_PUBLIC_APP_URL;
-  if (path.startsWith("/api/") && base) {
-    return `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}${qs}`;
-  }
-  return `${path}${qs}`;
+function useDebounced<T>(value: T, delay = 350) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
-
-function displayName(u: UserListItem): string {
-  const parts = [u.firstName, u.lastName].filter(Boolean);
-  if (parts.length) return parts.join(" ");
-  return u.name ?? "—";
-}
-
-export type UtilisateursProps = {
-  users: UserListItem[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  search: string;
-};
 
 export function Utilisateurs({
-  users: initialUsers,
-  total,
-  page,
-  limit,
-  totalPages,
-  search,
-}: UtilisateursProps) {
-  const router = useRouter();
+  initialPage = 1,
+  initialSearch = "",
+  initialRole,
+  initialStatus,
+}: {
+  initialPage?: number;
+  initialSearch?: string;
+  initialRole?: string;
+  initialStatus?: string;
+}) {
   const { user: currentUser } = useSession();
   const currentRole = currentUser?.role as string | undefined;
   const roleOptions = assignableRoles(currentRole);
-  const [users, setUsers] = useState(initialUsers);
-  const [searchInput, setSearchInput] = useState(search);
 
-  const [viewUser, setViewUser] = useState<UserListItem | null>(null);
-  const [viewUserFull, setViewUserFull] = useState<ViewUserFull | null>(null);
-  const [viewUserLoading, setViewUserLoading] = useState(false);
-  const [viewUserError, setViewUserError] = useState<string | null>(null);
-  const [editUser, setEditUser] = useState<UserListItem | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
-  const [toggleTarget, setToggleTarget] = useState<UserListItem | null>(null);
+  const [page, setPage] = useState(initialPage);
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [role, setRole] = useState<Role | undefined>(isRole(initialRole) ? initialRole : undefined);
+  const [status, setStatus] = useState<UserStatusFilter | undefined>(
+    initialStatus === "active" || initialStatus === "inactive" ? initialStatus : undefined
+  );
+  const search = useDebounced(searchInput.trim());
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const [creating, setCreating] = useState(false);
 
-  const [editForm, setEditForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    role: "USER" as Role,
+  // Toute modification d'un filtre ramène à la première page (sauf au premier rendu)
+  const filtersKey = `${search}|${role ?? ""}|${status ?? ""}`;
+  const previousFilters = useRef(filtersKey);
+  useEffect(() => {
+    if (previousFilters.current !== filtersKey) setPage(1);
+    previousFilters.current = filtersKey;
+  }, [filtersKey]);
+  useEffect(() => syncUrl({ page, search, role, status }), [page, search, role, status]);
+
+  const { data, isPending, isFetching, isPlaceholderData, error, refetch } = useQuery({
+    queryKey: ["users", { page, search, role, status }],
+    queryFn: async () => {
+      const result = await getUsers({ page, limit: PAGE_SIZE, search, role, status });
+      if (result.error) throw new Error(result.error);
+      return {
+        users: result.users ?? [],
+        total: result.total ?? 0,
+        totalPages: Math.max(1, result.totalPages ?? 1),
+      };
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setUsers(initialUsers);
-  }, [initialUsers]);
+  const users = data?.users ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const hasFilters = !!(search || role || status);
+  const close = () => setDialog((d) => (d ? { ...d, open: false } : d));
+  const open = (kind: DialogKind, user: UserListItem) => setDialog({ kind, user, open: true });
+  const dialogProps = (kind: DialogKind) => ({
+    open: dialog?.kind === kind && dialog.open,
+    user: dialog?.kind === kind ? dialog.user : null,
+    onClose: close,
+  });
 
-  useEffect(() => {
-    setSearchInput(search);
-  }, [search]);
-
-  useEffect(() => {
-    if (editUser) {
-      setEditForm({
-        firstName: editUser.firstName ?? "",
-        lastName: editUser.lastName ?? "",
-        email: editUser.email ?? "",
-        role: (editUser.role as Role) ?? "USER",
-      });
-      setError(null);
-    }
-  }, [editUser]);
-
-  useEffect(() => {
-    if (!viewUser) {
-      setViewUserFull(null);
-      setViewUserLoading(false);
-      setViewUserError(null);
-      return;
-    }
-    let cancelled = false;
-    setViewUserFull(null);
-    setViewUserError(null);
-    setViewUserLoading(true);
-    getUserById(viewUser.id)
-      .then((res) => {
-        if (cancelled) return;
-        const u = (res as { user?: ViewUserFull }).user;
-        if (u) setViewUserFull(u);
-        else setViewUserError("Utilisateur introuvable");
-      })
-      .catch((e) => {
-        if (!cancelled) setViewUserError(e instanceof Error ? e.message : "Erreur lors du chargement");
-      })
-      .finally(() => {
-        if (!cancelled) setViewUserLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [viewUser?.id]);
-
-  const base = "/users";
-  const q = search.trim() ? `search=${encodeURIComponent(search.trim())}` : "";
-  const pagination = (p: number) => (q ? `${base}?page=${p}&${q}` : `${base}?page=${p}`);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const v = searchInput.trim();
-    const url = v ? `${base}?page=1&search=${encodeURIComponent(v)}` : `${base}?page=1`;
-    router.replace(url);
+  const resetFilters = () => {
+    setSearchInput("");
+    setRole(undefined);
+    setStatus(undefined);
   };
 
-  const handleEdit = async () => {
-    if (!editUser) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await updateUser(editUser.id, {
-        firstName: editForm.firstName || null,
-        lastName: editForm.lastName || null,
-        email: editForm.email || null,
-        ...(editForm.role !== editUser.role && { role: editForm.role }),
-      });
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === editUser.id
-            ? { ...u, firstName: editForm.firstName, lastName: editForm.lastName, email: editForm.email, role: editForm.role }
-            : u
-        )
-      );
-      setEditUser(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la mise à jour");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await deleteUser(deleteTarget.id);
-      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la suppression");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggleActive = async () => {
-    if (!toggleTarget) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await updateUser(toggleTarget.id, { isActive: !toggleTarget.isActive });
-      setUsers((prev) =>
-        prev.map((u) => (u.id === toggleTarget.id ? { ...u, isActive: !u.isActive } : u))
-      );
-      setToggleTarget(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors du changement de statut");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Utilisateurs
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {total} utilisateur{total !== 1 ? "s" : ""} au total
-          </p>
-        </div>
-      </div>
-
-      {/* Barre gradient + recherche */}
-      <div className="rounded-t-2xl bg-gradient-to-r from-primaryColor to-primaryDarkColor px-4 py-4 sm:px-6">
-        <form
-          onSubmit={handleSearch}
-          className="flex flex-col gap-2 sm:flex-row sm:items-center"
-        >
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Rechercher par nom, email…"
-              className="border-0 bg-white/95 pl-9 dark:bg-gray-900/95 dark:placeholder:text-gray-400"
-            />
-          </div>
-          <Button
-            type="submit"
-            variant="secondary"
-            className="bg-white/90 text-gray-900 hover:bg-white dark:bg-gray-900/90 dark:text-gray-100 dark:hover:bg-gray-900"
-          >
-            Rechercher
+  const rowActions = (u: UserListItem) => {
+    const manageable = canManageUser(currentRole, u.role);
+    const isSelf = u.id === currentUser?.id;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none" aria-label={`Actions pour ${fullName(u)}`}>
+            <MoreHorizontal className="h-5 w-5" />
           </Button>
-        </form>
-      </div>
-
-      {/* Liste */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>Liste des utilisateurs</CardTitle>
-          <CardDescription>
-            Page {page} sur {totalPages || 1}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {users.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center text-gray-500 dark:text-gray-400">
-              <User className="mb-2 h-10 w-10" />
-              <p>Aucun utilisateur trouvé</p>
-              {search && (
-                <p className="mt-1 text-sm">Essayez un autre terme de recherche.</p>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="pb-3 font-medium text-gray-600 dark:text-gray-400">Utilisateur</th>
-                    <th className="pb-3 font-medium text-gray-600 dark:text-gray-400">Email</th>
-                    <th className="pb-3 font-medium text-gray-600 dark:text-gray-400">Rôle</th>
-                    <th className="pb-3 font-medium text-gray-600 dark:text-gray-400">Statut</th>
-                    <th className="pb-3 font-medium text-gray-600 dark:text-gray-400">Inscrit le</th>
-                    <th className="pb-3 font-medium text-gray-600 dark:text-gray-400 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr
-                      key={u.id}
-                      className="border-b border-gray-100 dark:border-gray-800 last:border-0"
-                    >
-                      <td className="py-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage
-                              src={getProfileImageSrc(u.profilePicture ?? u.image, u.updatedAt)}
-                              alt=""
-                            />
-                            <AvatarFallback className="bg-primaryColor/10 text-primaryColor text-xs">
-                              {displayName(u).split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase() || "?"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium text-gray-900 dark:text-gray-100">
-                            {displayName(u)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4">
-                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                          <Mail className="h-4 w-4 shrink-0" />
-                          {u.email ?? "—"}
-                        </span>
-                      </td>
-                      <td className="py-4">
-                        <Badge variant="secondary">{roleLabels[u.role] ?? u.role}</Badge>
-                      </td>
-                      <td className="py-4">
-                        <Badge
-                          variant={u.isActive ? "success" : "outline"}
-                          className={!u.isActive ? "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400" : ""}
-                        >
-                          {u.isActive ? "Actif" : "Inactif"}
-                        </Badge>
-                      </td>
-                      <td className="py-4 text-gray-500 dark:text-gray-400">
-                        {u.createdAt
-                          ? new Date(u.createdAt).toLocaleDateString("fr-FR", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "—"}
-                      </td>
-                      <td className="py-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewUser(u)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Voir
-                            </DropdownMenuItem>
-                            {canManageUser(currentRole, u.role) && (
-                              <>
-                                <DropdownMenuItem onClick={() => setEditUser(u)}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Modifier
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setToggleTarget(u)}>
-                                  <Power className="mr-2 h-4 w-4" />
-                                  {u.isActive ? "Désactiver" : "Activer"}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setDeleteTarget(u)}
-                                  className="text-red-600 focus:text-red-600 dark:text-red-400"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Supprimer
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {(page - 1) * limit + 1} – {Math.min(page * limit, total)} sur {total}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" asChild disabled={page <= 1}>
-                  <Link href={page > 1 ? pagination(page - 1) : "#"}>
-                    <ChevronLeft className="mr-1 h-4 w-4" />
-                    Précédent
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild disabled={page >= totalPages}>
-                  <Link href={page < totalPages ? pagination(page + 1) : "#"}>
-                    Suivant
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Modal: Voir utilisateur */}
-      <Dialog open={!!viewUser} onOpenChange={(open) => !open && setViewUser(null)}>
-        <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl sm:rounded-xl">
-          <div className="flex-shrink-0 rounded-t-xl bg-gradient-to-r from-primaryColor to-primaryDarkColor px-6 py-5 pr-14">
-            <DialogTitle className="text-lg font-semibold text-white">
-              Détails de l'utilisateur
-            </DialogTitle>
-            <p className="mt-1 text-sm text-white/80">
-              Informations complètes du compte
-            </p>
-          </div>
-          {viewUser && (
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuItem onSelect={() => open("view", u)}>
+            <Eye className="mr-2 h-4 w-4" aria-hidden />
+            Voir le détail
+          </DropdownMenuItem>
+          {manageable && (
             <>
-              {viewUserLoading && (
-                <div className="flex flex-1 items-center justify-center py-16">
-                  <Loader message="Chargement…" className="py-0" />
-                </div>
+              <DropdownMenuItem onSelect={() => open("edit", u)}>
+                <Pencil className="mr-2 h-4 w-4" aria-hidden />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => open("password", u)}>
+                <KeyRound className="mr-2 h-4 w-4" aria-hidden />
+                Changer le mot de passe
+              </DropdownMenuItem>
+              {u.email && (
+                <DropdownMenuItem onSelect={() => open("reset", u)}>
+                  <Mail className="mr-2 h-4 w-4" aria-hidden />
+                  Envoyer un lien de réinitialisation
+                </DropdownMenuItem>
               )}
-              {viewUserError && (
-                <div className="flex-1 px-6 py-6">
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
-                    {viewUserError}
-                  </div>
-                </div>
-              )}
-              {!viewUserLoading && !viewUserError && viewUserFull && (
-                <div className="flex-1 overflow-y-auto">
-                  <div className="px-6 pt-2 pb-6">
-                    {/* Profil */}
-                    <div className="mb-6 flex flex-wrap items-end gap-4">
-                      <Avatar className="h-20 w-20 shrink-0 rounded-full border-4 border-white shadow-lg dark:border-gray-900">
-                        <AvatarImage
-                          src={getProfileImageSrc(viewUserFull.profilePicture ?? viewUserFull.image, viewUserFull.updatedAt)}
-                        />
-                        <AvatarFallback className="bg-primaryColor/10 text-primaryColor text-xl">
-                          {displayNameFull(viewUserFull).split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase() || "?"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 pb-1">
-                        <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {displayNameFull(viewUserFull)}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <Badge variant="secondary" className="font-medium">
-                            {roleLabels[viewUserFull.role] ?? viewUserFull.role}
-                          </Badge>
-                          <Badge
-                            variant={viewUserFull.isActive ? "success" : "outline"}
-                            className={!viewUserFull.isActive ? "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400" : ""}
-                          >
-                            {viewUserFull.isActive ? "Actif" : "Inactif"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sections */}
-                    <div className="space-y-6">
-                      <section>
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                          <User className="h-4 w-4" />
-                          Identité
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {(viewUserFull.firstName != null && viewUserFull.firstName !== "") && (
-                            <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                                <User className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Prénom</p>
-                                <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {viewUserFull.firstName}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                          {(viewUserFull.lastName != null && viewUserFull.lastName !== "") && (
-                            <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                                <User className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Nom</p>
-                                <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {viewUserFull.lastName}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                          {(viewUserFull.sexe != null && viewUserFull.sexe !== "") && (
-                            <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                                <User className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Sexe</p>
-                                <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {sexeLabels[viewUserFull.sexe] ?? viewUserFull.sexe}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </section>
-
-                      <section>
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                          <Mail className="h-4 w-4" />
-                          Contact
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                              <Mail className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Email</p>
-                              <p className="mt-0.5 break-all text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {viewUserFull.email ?? "—"}
-                              </p>
-                            </div>
-                          </div>
-                          {(viewUserFull.phone != null && viewUserFull.phone !== "") && (
-                            <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                                <Phone className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Téléphone</p>
-                                <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {viewUserFull.phone}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                          {(viewUserFull.address != null && viewUserFull.address !== "") && (
-                            <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50 sm:col-span-2">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                                <MapPin className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Adresse</p>
-                                <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {viewUserFull.address}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </section>
-
-                      {(viewUserFull.bio != null && viewUserFull.bio !== "") && (
-                        <section>
-                          <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                            <FileText className="h-4 w-4" />
-                            À propos
-                          </h3>
-                          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                              <FileText className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Bio</p>
-                              <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
-                                {viewUserFull.bio}
-                              </p>
-                            </div>
-                          </div>
-                        </section>
-                      )}
-
-                      {Array.isArray(viewUserFull.nigerLanguage) && viewUserFull.nigerLanguage.length > 0 && (
-                        <section>
-                          <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                            <Languages className="h-4 w-4" />
-                            Langues
-                          </h3>
-                          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                              <Languages className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Langues du Niger</p>
-                              <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {viewUserFull.nigerLanguage.join(", ")}
-                              </p>
-                            </div>
-                          </div>
-                        </section>
-                      )}
-
-                      <section>
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                          <Calendar className="h-4 w-4" />
-                          Compte
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                              <Calendar className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Inscrit le</p>
-                              <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {viewUserFull.createdAt
-                                  ? new Date(viewUserFull.createdAt).toLocaleDateString("fr-FR", {
-                                      day: "numeric",
-                                      month: "long",
-                                      year: "numeric",
-                                    })
-                                  : "—"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                              <Clock className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Modifié le</p>
-                              <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {viewUserFull.updatedAt
-                                  ? new Date(viewUserFull.updatedAt).toLocaleDateString("fr-FR", {
-                                      day: "numeric",
-                                      month: "long",
-                                      year: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })
-                                  : "—"}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  </div>
-                </div>
+              {!isSelf && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => open("toggle", u)}>
+                    <Power className="mr-2 h-4 w-4" aria-hidden />
+                    {u.isActive ? "Désactiver le compte" : "Activer le compte"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => open("delete", u)}
+                    className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                    Supprimer
+                  </DropdownMenuItem>
+                </>
               )}
             </>
           )}
-          <div className="flex-shrink-0 border-t border-gray-200 px-6 py-4 dark:border-gray-800">
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={() => setViewUser(null)}>
-                Fermer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
-      {/* Modal: Modifier utilisateur */}
-      <Dialog open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)}>
-        <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md sm:rounded-xl">
-          <div className="flex-shrink-0 rounded-t-xl bg-gradient-to-r from-primaryColor to-primaryDarkColor px-6 py-5 pr-14">
-            <DialogTitle className="text-lg font-semibold text-white">
-              Modifier l'utilisateur
-            </DialogTitle>
-            <p className="mt-1 text-sm text-white/80">
-              Modifiez les informations de base du compte.
+  return (
+    <div className="mx-auto w-full max-w-7xl space-y-5">
+      {/* En-tête */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-[28px]">Utilisateurs</h1>
+          <p className="mt-1 text-sm text-gray-600">Gérez les comptes, leurs accès et leurs mots de passe.</p>
+          <p className="mt-2 flex items-center gap-2 text-sm text-gray-600" aria-live="polite">
+            {isFetching && !isPending && <ButtonLoader className="text-primaryColor" />}
+            {isPending ? "Chargement…" : `${total} compte${total > 1 ? "s" : ""}${hasFilters ? " trouvé" + (total > 1 ? "s" : "") : ""}`}
+          </p>
+        </div>
+        {roleOptions.length > 0 && (
+          <Button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="h-11 w-full rounded-none bg-primaryColor px-5 text-white hover:bg-primaryDarkColor sm:w-auto"
+          >
+            <UserPlus className="mr-2 h-4 w-4" aria-hidden />
+            Ajouter un utilisateur
+          </Button>
+        )}
+      </div>
+
+      <div className="border border-gray-200 bg-white shadow-sm">
+        {/* Barre de filtres */}
+        <div className="flex flex-col gap-3 border-b border-gray-200 p-3 sm:p-4 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+            <Input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Rechercher par nom ou email…"
+              aria-label="Rechercher un utilisateur"
+              className="h-10 rounded-none pl-9"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:flex">
+            <Select value={role ?? ALL} onValueChange={(v) => setRole(v === ALL ? undefined : (v as Role))}>
+              <SelectTrigger className="h-10 rounded-none lg:w-48" aria-label="Filtrer par rôle">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous les rôles</SelectItem>
+                {ALL_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {roleLabels[r] ?? r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={status ?? ALL}
+              onValueChange={(v) => setStatus(v === ALL ? undefined : (v as UserStatusFilter))}
+            >
+              <SelectTrigger className="h-10 rounded-none lg:w-40" aria-label="Filtrer par statut">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous les statuts</SelectItem>
+                <SelectItem value="active">Actifs</SelectItem>
+                <SelectItem value="inactive">Désactivés</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {hasFilters && (
+            <Button type="button" variant="ghost" onClick={resetFilters} className="h-10 rounded-none text-gray-600">
+              <X className="mr-1.5 h-4 w-4" aria-hidden />
+              Effacer
+            </Button>
+          )}
+        </div>
+
+        {/* Contenu */}
+        {error ? (
+          <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+            <p className="font-medium text-gray-900">Impossible de charger les utilisateurs</p>
+            <p className="text-sm text-gray-600">{(error as Error).message}</p>
+            <Button variant="outline" className="rounded-none" onClick={() => refetch()}>
+              <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
+              Réessayer
+            </Button>
+          </div>
+        ) : isPending ? (
+          <ul className="divide-y divide-gray-100" aria-hidden>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <li key={i} className="flex items-center gap-3 px-4 py-4">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48 max-w-full" />
+                  <Skeleton className="h-3 w-64 max-w-full" />
+                </div>
+                <Skeleton className="hidden h-5 w-24 md:block" />
+              </li>
+            ))}
+          </ul>
+        ) : users.length === 0 ? (
+          <div className="flex flex-col items-center px-6 py-16 text-center">
+            <span className="mb-4 flex h-14 w-14 items-center justify-center bg-primaryColor/10 text-primaryColor">
+              <UsersRound className="h-7 w-7" aria-hidden />
+            </span>
+            <p className="font-medium text-gray-900">Aucun utilisateur trouvé</p>
+            <p className="mt-1 text-sm text-gray-600">
+              {hasFilters ? "Aucun compte ne correspond à ces critères." : "Aucun compte n'est encore enregistré."}
             </p>
+            {hasFilters && (
+              <Button variant="outline" className="mt-4 rounded-none" onClick={resetFilters}>
+                Effacer les filtres
+              </Button>
+            )}
           </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="space-y-6 px-6 py-6">
-              <section>
-                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                  <User className="h-4 w-4" />
-                  Identité
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-firstName" className="text-gray-700 dark:text-gray-300">
-                      Prénom
-                    </Label>
-                    <Input
-                      id="edit-firstName"
-                      value={editForm.firstName}
-                      onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
-                      className="rounded-lg border-gray-200 focus-visible:ring-primaryColor dark:border-gray-700"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-lastName" className="text-gray-700 dark:text-gray-300">
-                      Nom
-                    </Label>
-                    <Input
-                      id="edit-lastName"
-                      value={editForm.lastName}
-                      onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
-                      className="rounded-lg border-gray-200 focus-visible:ring-primaryColor dark:border-gray-700"
-                    />
-                  </div>
-                </div>
-              </section>
-              <section>
-                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                  <Mail className="h-4 w-4" />
-                  Contact
-                </h3>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-email" className="text-gray-700 dark:text-gray-300">
-                    Email
-                  </Label>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                    className="rounded-lg border-gray-200 focus-visible:ring-primaryColor dark:border-gray-700"
-                  />
-                </div>
-              </section>
-              <section>
-                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primaryColor">
-                  <ShieldCheck className="h-4 w-4" />
-                  Compte
-                </h3>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-role" className="text-gray-700 dark:text-gray-300">
-                    Rôle
-                  </Label>
-                  <Select
-                    value={editForm.role}
-                    onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as Role }))}
-                  >
-                    <SelectTrigger
-                      id="edit-role"
-                      className="rounded-lg border-gray-200 focus:ring-primaryColor dark:border-gray-700"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {roleLabels[r] ?? r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </section>
-              {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
-                  {error}
-                </div>
-              )}
-            </div>
+        ) : (
+          <div className={isPlaceholderData ? "opacity-60 transition-opacity" : "transition-opacity"}>
+            {/* Tableau (tablette et ordinateur) */}
+            <table className="hidden w-full text-left text-sm md:table">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-semibold">Utilisateur</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Rôle</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Statut</th>
+                  <th scope="col" className="hidden px-4 py-3 font-semibold lg:table-cell">Téléphone</th>
+                  <th scope="col" className="hidden px-4 py-3 font-semibold xl:table-cell">Inscrit le</th>
+                  <th scope="col" className="w-14 px-2 py-3"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((u) => (
+                  <tr key={u.id} className="transition-colors hover:bg-gray-50/80">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => open("view", u)}
+                        className="group flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primaryColor"
+                      >
+                        <UserAvatarImage user={u} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-gray-900 group-hover:text-primaryColor">
+                            {fullName(u)}
+                            {u.id === currentUser?.id && <span className="ml-2 text-xs font-normal text-gray-500">(vous)</span>}
+                          </span>
+                          <span className="block truncate text-gray-500">{u.email ?? "—"}</span>
+                        </span>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{roleLabels[u.role] ?? u.role}</td>
+                    <td className="px-4 py-3"><StatusBadge active={u.isActive} /></td>
+                    <td className="hidden px-4 py-3 tabular-nums text-gray-600 lg:table-cell">{u.phone || "—"}</td>
+                    <td className="hidden px-4 py-3 text-gray-600 xl:table-cell">{formatDate(u.createdAt) ?? "—"}</td>
+                    <td className="px-2 py-2 text-right">{rowActions(u)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Liste (téléphone) */}
+            <ul className="divide-y divide-gray-100 md:hidden">
+              {users.map((u) => (
+                <li key={u.id} className="flex items-start gap-3 py-3 pl-4 pr-2">
+                  <button type="button" onClick={() => open("view", u)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                    <UserAvatarImage user={u} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-gray-900">
+                        {fullName(u)}
+                        {u.id === currentUser?.id && <span className="ml-1.5 text-xs font-normal text-gray-500">(vous)</span>}
+                      </span>
+                      <span className="block truncate text-sm text-gray-500">{u.email ?? "—"}</span>
+                      <span className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-gray-700">{roleLabels[u.role] ?? u.role}</span>
+                        <StatusBadge active={u.isActive} />
+                      </span>
+                    </span>
+                  </button>
+                  {rowActions(u)}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="flex-shrink-0 border-t border-gray-200 px-6 py-4 dark:border-gray-800">
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setEditUser(null)} disabled={loading}>
-                Annuler
+        )}
+
+        {/* Pagination */}
+        {!error && !isPending && totalPages > 1 && (
+          <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-3 py-3 sm:px-4">
+            <p className="text-sm text-gray-600">
+              Page <span className="font-semibold text-gray-900">{page}</span> sur {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="h-10 rounded-none"
+                disabled={page <= 1 || isFetching}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4 sm:mr-1" aria-hidden />
+                <span className="hidden sm:inline">Précédent</span>
+                <span className="sr-only sm:hidden">Page précédente</span>
               </Button>
               <Button
-                onClick={handleEdit}
-                loading={loading}
-                className="bg-primaryColor hover:bg-primaryDarkColor"
+                variant="outline"
+                className="h-10 rounded-none"
+                disabled={page >= totalPages || isFetching}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
-                Enregistrer
+                <span className="hidden sm:inline">Suivant</span>
+                <span className="sr-only sm:hidden">Page suivante</span>
+                <ChevronRight className="h-4 w-4 sm:ml-1" aria-hidden />
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
-      {/* Modal: Confirmer suppression */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Supprimer l'utilisateur</DialogTitle>
-            <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer <strong>{deleteTarget && displayName(deleteTarget)}</strong> ?
-              Cette action est irréversible.
-            </DialogDescription>
-          </DialogHeader>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={loading}>
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} loading={loading}>
-              Supprimer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Confirmer activation/désactivation */}
-      <Dialog open={!!toggleTarget} onOpenChange={(open) => !open && setToggleTarget(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{toggleTarget?.isActive ? "Désactiver" : "Activer"} le compte</DialogTitle>
-            <DialogDescription>
-              {toggleTarget?.isActive
-                ? `Voulez-vous désactiver le compte de ${toggleTarget && displayName(toggleTarget)} ? L'utilisateur ne pourra plus se connecter.`
-                : `Voulez-vous réactiver le compte de ${toggleTarget && displayName(toggleTarget)} ?`}
-            </DialogDescription>
-          </DialogHeader>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setToggleTarget(null)} disabled={loading}>
-              Annuler
-            </Button>
-            <Button
-              variant={toggleTarget?.isActive ? "destructive" : "default"}
-              onClick={handleToggleActive}
-              loading={loading}
-            >
-              {toggleTarget?.isActive ? "Désactiver" : "Activer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateUserDialog open={creating} roleOptions={roleOptions} onClose={() => setCreating(false)} />
+      <ViewUserDialog
+        {...dialogProps("view")}
+        canManage={!!dialog && canManageUser(currentRole, dialog.user.role)}
+        onEdit={(u) => open("edit", u)}
+      />
+      <EditUserDialog {...dialogProps("edit")} roleOptions={roleOptions} />
+      <PasswordDialog {...dialogProps("password")} />
+      <ResetPasswordDialog {...dialogProps("reset")} />
+      <ToggleActiveDialog {...dialogProps("toggle")} />
+      <DeleteUserDialog {...dialogProps("delete")} />
     </div>
   );
 }

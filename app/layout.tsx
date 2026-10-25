@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { SuccessOverlayHost } from "@/components/success-overlay";
 import { SessionProvider } from "@/context/SessionContext";
 import { getUser } from "@/actions/getUser";
 import { generateMetadata as generateAppMetadata } from "@/lib/generateMetadata";
@@ -48,6 +49,7 @@ export default async function RootLayout({
             />
               {children}
               <Toaster />
+              <SuccessOverlayHost />
             </ReactQueryProvider>
             </SessionProvider>
           </Suspense>
