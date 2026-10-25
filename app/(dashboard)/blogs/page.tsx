@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { BlogsList } from "@/components/blog/BlogsList";
-import { BlogsGridSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Loader from "@/components/loader"
 
 // Page principale des blogs
 export default function BlogsPage() {
@@ -22,7 +22,7 @@ export default function BlogsPage() {
         </div>
       </div>
       
-      <Suspense fallback={<BlogsGridSkeleton />}>
+      <Suspense fallback={<Loader />}>
         <BlogsList />
       </Suspense>
     </div>

@@ -3,8 +3,8 @@ import { getBlogsAction, getBlogPostsAction } from "@/actions/blog-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { StatsSkeleton, RecentPostsSkeleton } from "@/components/skeletons";
 import Link from "next/link";
+import Loader from "@/components/loader"
 
 // Composant pour les statistiques du dashboard
 async function DashboardStats() {
@@ -288,12 +288,12 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <Suspense fallback={<StatsSkeleton />}>
+      <Suspense fallback={<Loader />}>
         <DashboardStats />
       </Suspense>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Suspense fallback={<RecentPostsSkeleton />}>
+        <Suspense fallback={<Loader />}>
           <RecentPosts />
         </Suspense>
         

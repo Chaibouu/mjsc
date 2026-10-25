@@ -6,15 +6,13 @@ import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { mediaFormSchema } from '@/schemas/media';
 import { putMedia } from '@/actions/medias';
 import { notify } from '@/lib/notify';
-import appConfig from '@/settings';
 import type { Media } from '@/types/media';
 import { ExistingGallery, GalleryInput, } from '../ImageFields';
-import { Spinner } from '../Spinner';
+import { FormActions } from '../FormActions';
 
 interface UpdateMediaProps {
     media: Media;
@@ -100,15 +98,12 @@ const UpdateMedia = ({ media, onClose }: UpdateMediaProps) => {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel className="mt-2 text-lg text-slate-400">Description</FormLabel>
-                            <FormControl>
-                            <Textarea
-                                {...field}
-                                rows={5}
+                            <RichTextEditor
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
                                 placeholder="Veuillez décrire l'événement ou l'album"
                                 disabled={isPending}
-                                className="bg-white"
                             />
-                            </FormControl>
                             <FormMessage />
                         </FormItem>
                         )}
@@ -156,16 +151,7 @@ const UpdateMedia = ({ media, onClose }: UpdateMediaProps) => {
                         )}
                     />
                 </div>
-                <div>
-                    <Button
-                        type="submit"
-                        disabled={isPending}
-                        className={`w-full mt-8 text-white ${isPending ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"}`}
-                        style={{ backgroundColor: appConfig.secondaryColor }}
-                    >
-                        {isPending ? <Spinner /> : "Enregistrer les modifications"}
-                    </Button>
-                </div>
+                <FormActions isPending={isPending} submitLabel="Enregistrer les modifications" onClose={onClose} />
           </form>
       </Form>
     </div>

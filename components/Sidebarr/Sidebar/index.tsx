@@ -48,6 +48,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, navigation, role }: SidebarProps
     return () => document.removeEventListener("click", clickHandler);
   });
 
+  // Mobile : refermer le menu après un changement de page
+  useEffect(() => {
+    setSidebarOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   // close if the esc key is pressed
   useEffect(() => {
     const keyHandler = ({ keyCode }: KeyboardEvent) => {
@@ -68,9 +74,19 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, navigation, role }: SidebarProps
   }, [sidebarExpanded]);
 
   return (
+    <>
+    {/* Mobile : fond assombri derrière le menu ouvert ; un clic le referme */}
+    <div
+      aria-hidden
+      onClick={() => setSidebarOpen(false)}
+      className={`fixed inset-0 z-[9998] bg-black/50 transition-opacity duration-300 lg:hidden ${
+        sidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+    />
     <aside
+      id="sidebar"
       ref={sidebar}
-      className={`absolute left-0 top-0 z-9999 flex h-screen w-68 flex-col overflow-y-hidden bg-primaryColor duration-300 ease-linear dark:bg-boxdark lg:static lg:translate-x-0 ${
+      className={`fixed left-0 top-0 z-9999 flex h-[100dvh] w-[min(18rem,85vw)] flex-col overflow-y-hidden bg-primaryColor shadow-xl duration-300 ease-out dark:bg-boxdark lg:static lg:h-screen lg:w-68 lg:translate-x-0 lg:shadow-none ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       }`}
     >
@@ -90,7 +106,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, navigation, role }: SidebarProps
           onClick={() => setSidebarOpen(!sidebarOpen)}
           aria-controls="sidebar"
           aria-expanded={sidebarOpen}
-          className="block lg:hidden"
+          aria-label="Fermer le menu"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-white hover:bg-white/10 lg:hidden"
         >
           
           <svg
@@ -219,6 +236,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, navigation, role }: SidebarProps
         {/* <!-- Sidebar Menu --> */}
       </div>
     </aside>
+    </>
   );
 };
 

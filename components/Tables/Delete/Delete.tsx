@@ -1,6 +1,7 @@
 'use client'
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { FormDialogContent } from "@/components/Forms/FormDialogContent"
 import React from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
@@ -40,7 +41,7 @@ const Delete = ({ id, queryKey, label = "cet élément", deleteFnct }: DeletePro
           <Trash2 className="cursor-pointer" color="#ea2a2a" />
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[435px]">
+      <FormDialogContent className="sm:max-w-[435px]">
         <DialogHeader>
           <DialogTitle>Supprimer {label} ?</DialogTitle>
           <DialogDescription className="my-4">
@@ -48,14 +49,14 @@ const Delete = ({ id, queryKey, label = "cet élément", deleteFnct }: DeletePro
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={mutation.isPending}>
+          <Button variant="outline" className="rounded-none" onClick={() => setIsOpen(false)} disabled={mutation.isPending}>
             Annuler
           </Button>
-          <Button variant="destructive" disabled={mutation.isPending} onClick={() => mutation.mutate(id)}>
+          <Button variant="destructive" className="rounded-none" loading={mutation.isPending} onClick={() => mutation.mutate(id)}>
             {mutation.isPending ? "Suppression…" : "Supprimer"}
           </Button>
         </div>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   )
 }

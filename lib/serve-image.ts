@@ -23,7 +23,12 @@ const FILENAME_RE = /^[a-zA-Z0-9_.-]+\.[a-z]+$/;
  * fichiers envoyés avant la migration). Le type renvoyé dépend de l'extension : seules des
  * images peuvent sortir d'ici.
  */
-export async function serveImage(dir: string, filename: string, id?: string): Promise<NextResponse> {
+export async function serveImage(
+  dir: string,
+  filename: string,
+  id?: string,
+  { uniqueName = id !== undefined }: { uniqueName?: boolean } = {}
+): Promise<NextResponse> {
   if (id !== undefined && !ID_RE.test(id)) {
     return NextResponse.json({ error: "ID invalide" }, { status: 400 });
   }
@@ -45,7 +50,7 @@ export async function serveImage(dir: string, filename: string, id?: string): Pr
     return new NextResponse(object.body as BodyInit, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": id === undefined ? FIXED_NAME_CACHE : UNIQUE_NAME_CACHE,
+        "Cache-Control": uniqueName ? UNIQUE_NAME_CACHE : FIXED_NAME_CACHE,
         "X-Content-Type-Options": "nosniff",
       },
     });

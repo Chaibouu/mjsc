@@ -16,7 +16,13 @@ const SECURITY_NOTICE =
   "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : aucune modification ne sera faite sur votre compte.";
 
 /** Envoie un email transactionnel au gabarit de la plateforme (HTML + texte, logo joint). */
-async function sendTemplatedEmail(to: string, subject: string, content: EmailContent) {
+async function sendTemplatedEmail(
+  to: string,
+  subject: string,
+  content: EmailContent,
+  options: { replyTo?: string } = {}
+) {
+  const replyTo = options.replyTo || process.env.EMAIL_REPLY_TO;
   const { html, text } = renderEmail(content);
 
   await transporter.sendMail({
@@ -25,7 +31,7 @@ async function sendTemplatedEmail(to: string, subject: string, content: EmailCon
     subject,
     html,
     text,
-    ...(process.env.EMAIL_REPLY_TO && { replyTo: process.env.EMAIL_REPLY_TO }),
+    ...(replyTo && { replyTo }),
     // Signale un email automatique (évite les réponses automatiques d'absence)
     headers: {
       "Auto-Submitted": "auto-generated",
@@ -108,4 +114,31 @@ export const sendChangeEmailVerification = async (
     notes: ["Ce lien est valable 1 heure.", "Votre ancienne adresse reste active tant que vous n'avez pas confirmé."],
     securityNotice: SECURITY_NOTICE,
   });
+};
+
+/** Transmet un message du formulaire de contact du site (réponse directe à l'expéditeur). */
+export const sendContactMessageEmail = async (message: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) => {
+  const to = process.env.CONTACT_EMAIL || process.env.SUPER_ADMIN_EMAIL || fromAddress;
+  if (!to) throw new Error("Aucune adresse de réception configurée (CONTACT_EMAIL)");
+
+  await sendTemplatedEmail(
+    to,
+    `[Contact] ${message.subject}`,
+    {
+      preheader: `Message de ${message.name} : ${message.subject}`,
+      title: "Nouveau message depuis le site",
+      paragraphs: [
+        `De : ${message.name} <${message.email}>`,
+        `Sujet : ${message.subject}`,
+        ...message.message.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean),
+      ],
+      notes: ["Répondez directement à cet email pour écrire à l'expéditeur."],
+    },
+    { replyTo: message.email }
+  );
 };

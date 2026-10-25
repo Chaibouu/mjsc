@@ -4,6 +4,7 @@ import { BlogForm } from "./BlogForm";
 import { BlogFormEdit } from "./BlogFormEdit";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Blog } from "@/types/blog";
+import Loader from "@/components/loader"
 
 interface BlogFormWrapperProps {
   blogId?: string;
@@ -48,35 +49,9 @@ function BlogFormWithData({ blogId, mode }: BlogFormWrapperProps) {
   return <BlogFormEdit blogId={blogId} initialData={blog} />;
 }
 
-// Skeleton optimisé
-function BlogFormSkeleton() {
-  return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardContent className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-          <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-          </div>
-          <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-20 bg-gray-200 rounded"></div>
-          </div>
-          <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-          </div>
-          <div className="h-10 bg-gray-200 rounded"></div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function BlogFormWrapperOptimized({ blogId, mode }: BlogFormWrapperProps) {
   return (
-    <Suspense fallback={<BlogFormSkeleton />}>
+    <Suspense fallback={<Loader />}>
       <BlogFormWithData blogId={blogId} mode={mode} />
     </Suspense>
   );

@@ -3,9 +3,9 @@ import { getBlogPostsAction } from "@/actions/blog-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PostsListSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 import type { BlogPost } from "@/types/blog";
+import Loader from "@/components/loader"
 
 interface BlogPostsProps {
   blogId: string;
@@ -135,7 +135,7 @@ async function BlogPostsList({ blogId }: BlogPostsProps) {
 
 export function BlogPosts({ blogId }: BlogPostsProps) {
   return (
-    <Suspense fallback={<PostsListSkeleton />}>
+    <Suspense fallback={<Loader />}>
       <BlogPostsList blogId={blogId} />
     </Suspense>
   );

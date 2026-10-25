@@ -5,9 +5,9 @@ import { getBlogAction } from "@/actions/blog-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PostsListSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 import type { BlogPost } from "@/types/blog";
+import Loader from "@/components/loader"
 
 interface PostDetailProps {
   postId: string;
@@ -121,7 +121,7 @@ export default async function PostPage({
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Suspense fallback={<PostsListSkeleton />}>
+      <Suspense fallback={<Loader />}>
         <PostDetail postId={postId} blogId={blogId} />
       </Suspense>
     </div>

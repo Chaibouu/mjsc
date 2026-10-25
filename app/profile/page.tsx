@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ProfileSkeleton } from "@/components/skeletons";
 import Link from "next/link";
+import Loader from "@/components/loader"
 
 // Page liée à la session (cookies) : jamais pré-générée au build
 export const dynamic = "force-dynamic";
@@ -231,7 +231,7 @@ async function ProfileInfo() {
 export default function ProfilePage() {
   return (
     <div className="container mx-auto px-4 py-8">
-      <Suspense fallback={<ProfileSkeleton />}>
+      <Suspense fallback={<Loader />}>
         <ProfileInfo />
       </Suspense>
     </div>

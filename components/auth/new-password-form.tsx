@@ -92,7 +92,7 @@ export const NewPasswordForm = () => {
           <FormError message={error} />
           <FormSuccess message={success} />
           <Button
-            disabled={isPending}
+            loading={isPending}
             type="submit"
             className="w-full"
           >

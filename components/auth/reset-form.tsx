@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/form-error";
-import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
+import { AuthBrandPanel, AuthMobileBrand } from "@/components/auth/auth-brand-panel";
 import { forgotPassword } from "@/actions/forgotPassword";
 
 export const ResetForm = () => {
@@ -59,7 +59,8 @@ export const ResetForm = () => {
           <AuthBrandPanel message="Vous avez oublié votre mot de passe ? Recevez par email un lien sécurisé pour en choisir un nouveau." />
 
           {/* Côté droit - Formulaire ou confirmation d'envoi */}
-          <div className="p-8 flex flex-col justify-center">
+          <div className="p-6 sm:p-8 flex flex-col justify-center">
+            <AuthMobileBrand />
             {sentTo ? (
               <div className="text-center space-y-5">
                 <div className="mx-auto w-14 h-14 rounded-full bg-primaryColor/10 flex items-center justify-center">
@@ -138,7 +139,7 @@ export const ResetForm = () => {
                     />
                     <FormError message={error} />
                     <Button
-                      disabled={isPending}
+                      loading={isPending}
                       type="submit"
                       className="w-full bg-primaryColor text-white hover:bg-primaryColor/90"
                     >

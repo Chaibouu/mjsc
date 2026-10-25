@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireContentEditorApi } from "@/lib/api-users-auth";
+import { cleanRichField } from "@/lib/rich-content";
 import { createMediaSchema } from "@/schemas/media";
 import { uploadMediaGalleryImage } from "@/lib/upload";
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
     const title = (formData.get("title") as string)?.trim();
-    const description = (formData.get("description") as string)?.trim() || undefined;
+    const description = cleanRichField(formData.get("description")) || undefined;
     const galleryFiles: File[] = [];
 
     const parsed = createMediaSchema.safeParse({ title, description });

@@ -24,7 +24,7 @@ import { FormError } from "@/components/form-error";
 import { FormSuccess } from "@/components/form-success";
 import { login } from "@/actions/login";
 import { Checkbox } from "@/components/ui/checkbox"
-import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
+import { AuthBrandPanel, AuthMobileBrand } from "@/components/auth/auth-brand-panel";
 
 
 
@@ -217,7 +217,8 @@ export const LoginForm = () => {
         <AuthBrandPanel message="Bienvenue sur la plateforme numérique du Ministère. Veuillez vous authentifier pour accéder à votre espace personnel." />
 
         {/* Côté droit - Formulaire */}
-        <div className="p-8 flex flex-col justify-center">
+        <div className="p-6 sm:p-8 flex flex-col justify-center">
+          <AuthMobileBrand />
           {/* Titre du formulaire */}
           <div className="mb-6 text-center ">
             <h2 className="text-xl font-bold text-gray-900 mb-1">
@@ -346,7 +347,7 @@ export const LoginForm = () => {
              <FormError message={error || urlError} />
              <FormSuccess message={success} />
              <Button
-               disabled={isPending}
+               loading={isPending}
                type="submit"
                className="w-full bg-primaryColor text-white hover:bg-primaryColor/90"
              >

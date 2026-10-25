@@ -195,7 +195,7 @@ export function EditProfilPicture({
             <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Annuler
             </Button>
-            <Button type="submit" disabled={loading || (!selectedAvatar && !customFile)}>
+            <Button type="submit" loading={loading} disabled={!selectedAvatar && !customFile}>
               {loading ? "Enregistrement…" : "Enregistrer"}
             </Button>
           </DialogFooter>

@@ -9,6 +9,7 @@ import Delete from "../Delete/Delete";
 import Update from "../Update/Update";
 import UpdateProjet from "@/components/Forms/Update/UpdateProjet";
 import { uploadSrc } from "@/components/Forms/ImageFields";
+import { htmlToText } from "@/lib/html-text";
 import { deleteProjet, fetchProjets } from "@/actions/projets";
 import type { Projet, ProjetAuthor } from "@/types/projet";
 
@@ -49,8 +50,8 @@ const columns: ColumnDef<Projet>[] = [
     cell: ({ row }) => (
       <div className="max-w-[320px]">
         <p className="font-medium text-slate-900">{row.original.title}</p>
-        {row.original.description && (
-          <p className="line-clamp-1 text-sm text-slate-500">{row.original.description}</p>
+        {htmlToText(row.original.description) && (
+          <p className="line-clamp-1 text-sm text-slate-500">{htmlToText(row.original.description)}</p>
         )}
       </div>
     ),

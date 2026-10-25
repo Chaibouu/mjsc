@@ -6,15 +6,13 @@ import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { projetFormSchema } from '@/schemas/projet';
 import { putProjet } from '@/actions/projets';
 import { notify } from '@/lib/notify';
-import appConfig from '@/settings';
 import type { Projet } from '@/types/projet';
 import { ExistingGallery, GalleryInput, MainImageInput, uploadSrc } from '../ImageFields';
-import { Spinner } from '../Spinner';
+import { FormActions } from '../FormActions';
 
 interface UpdateProjetProps {
     projet: Projet;
@@ -104,15 +102,12 @@ const UpdateProjet = ({ projet, onClose }: UpdateProjetProps) => {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel className="mt-2 text-lg text-slate-400">Description</FormLabel>
-                            <FormControl>
-                            <Textarea
-                                {...field}
-                                rows={5}
+                            <RichTextEditor
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
                                 placeholder="Veuillez décrire le projet"
                                 disabled={isPending}
-                                className="bg-white"
                             />
-                            </FormControl>
                             <FormMessage />
                         </FormItem>
                         )}
@@ -201,16 +196,7 @@ const UpdateProjet = ({ projet, onClose }: UpdateProjetProps) => {
                         )}
                     />
                 </div>
-                <div>
-                    <Button
-                        type="submit"
-                        disabled={isPending}
-                        className={`w-full mt-8 text-white ${isPending ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"}`}
-                        style={{ backgroundColor: appConfig.secondaryColor }}
-                    >
-                        {isPending ? <Spinner /> : "Enregistrer les modifications"}
-                    </Button>
-                </div>
+                <FormActions isPending={isPending} submitLabel="Enregistrer les modifications" onClose={onClose} />
           </form>
       </Form>
     </div>

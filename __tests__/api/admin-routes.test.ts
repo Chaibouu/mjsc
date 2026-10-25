@@ -11,6 +11,7 @@ import { POST as postProjet } from '@/app/api/projets/route'
 import { POST as postMedia } from '@/app/api/medias/route'
 import { POST as postDiplome } from '@/app/api/diplome/route'
 import { DELETE as deleteActualite } from '@/app/api/actualites/[id]/route'
+import { POST as postEditorImage } from '@/app/api/editor/images/route'
 
 jest.mock('next/headers', () => ({ headers: jest.fn() }))
 jest.mock('@/lib/tokens', () => ({ getUserIdFromToken: jest.fn() }))
@@ -37,6 +38,7 @@ const mutations: [string, () => Promise<Response>][] = [
   ['POST /api/projets', () => postProjet(req('/api/projets'))],
   ['POST /api/medias', () => postMedia(req('/api/medias'))],
   ['POST /api/diplome', () => postDiplome(req('/api/diplome'))],
+  ['POST /api/editor/images', () => postEditorImage(req('/api/editor/images'))],
   [
     'DELETE /api/actualites/[id]',
     () => deleteActualite(req('/api/actualites/a1', 'DELETE'), { params: Promise.resolve({ id: 'a1' }) }),

@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BeatLoader } from "react-spinners";
 import { useSearchParams } from "next/navigation";
 import { CardWrapper } from "@/components/auth/card-wrapper";
 import { FormError } from "@/components/form-error";
 import { FormSuccess } from "@/components/form-success";
 import { verifyEmail } from "@/actions/verifyEmail";
+import Loader from "@/components/loader"
 
 export const EmailVerificationForm = () => {
   const [error, setError] = useState<string | undefined>();
@@ -48,7 +48,7 @@ export const EmailVerificationForm = () => {
     >
       <div className="flex items-center w-full justify-center">
         {isLoading && !success && !error && (
-          <BeatLoader />
+          <Loader message="Vérification en cours…" className="py-4" />
         )}
         <FormSuccess message={success} />
         {!success && (

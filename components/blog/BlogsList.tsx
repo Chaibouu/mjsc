@@ -3,9 +3,9 @@ import { getBlogsAction } from "@/actions/blog-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BlogsGridSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 import type { Blog } from "@/types/blog";
+import Loader from "@/components/loader"
 
 async function BlogsListContent() {
   const searchParams = new URLSearchParams();
@@ -130,7 +130,7 @@ async function BlogsListContent() {
 
 export function BlogsList() {
   return (
-    <Suspense fallback={<BlogsGridSkeleton />}>
+    <Suspense fallback={<Loader />}>
       <BlogsListContent />
     </Suspense>
   );

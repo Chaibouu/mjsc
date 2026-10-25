@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logout } from "@/actions/logout";
 import { roleLabels } from "@/settings/labels";
+import { ButtonLoader } from "@/components/loader";
 import { ROLES } from "@/lib/roles";
 import type { User } from "@/types/user";
 
@@ -108,7 +109,7 @@ export function UserMenu({ user }: { user: User }) {
           disabled={isPending}
           className="cursor-pointer text-red-600 focus:text-red-600"
         >
-          <LogOut className="mr-2 h-4 w-4" />
+          {isPending ? <ButtonLoader className="mr-2" /> : <LogOut className="mr-2 h-4 w-4" />}
           {isPending ? "Déconnexion…" : "Se déconnecter"}
         </DropdownMenuItem>
       </DropdownMenuContent>

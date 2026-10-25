@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getBlogAction } from "@/actions/blog-actions";
 import { BlogPostForm } from "@/components/blog/BlogPostForm";
 import { Card, CardContent } from "@/components/ui/card";
+import Loader from "@/components/loader"
 
 // Composant pour récupérer les informations du blog
 async function BlogInfo({ blogId }: { blogId: string }) {
@@ -35,18 +36,6 @@ async function BlogInfo({ blogId }: { blogId: string }) {
   );
 }
 
-// Skeleton pour les informations du blog
-function BlogInfoSkeleton() {
-  return (
-    <div className="mb-8">
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-lg">
-        <div className="h-8 bg-gray-200 rounded w-64 mb-2"></div>
-        <div className="h-5 bg-gray-200 rounded w-96"></div>
-      </div>
-    </div>
-  );
-}
-
 // Page principale avec paramètres async (Next.js 15)
 export default async function CreatePostPage({ 
   params 
@@ -57,7 +46,7 @@ export default async function CreatePostPage({
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Suspense fallback={<BlogInfoSkeleton />}>
+      <Suspense fallback={<Loader />}>
         <BlogInfo blogId={blogId} />
       </Suspense>
       

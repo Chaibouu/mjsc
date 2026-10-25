@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BeatLoader } from "react-spinners";
 import { useSearchParams } from "next/navigation";
 
 import { verifyUserToken } from "@/actions/verifyUserToken";
 import { CardWrapper } from "@/components/auth/card-wrapper";
 import { FormError } from "@/components/form-error";
 import { FormSuccess } from "@/components/form-success";
+import Loader from "@/components/loader"
 
 export const NewVerificationForm = () => {
   const [error, setError] = useState<string | undefined>();
@@ -49,7 +49,7 @@ export const NewVerificationForm = () => {
     >
       <div className="flex items-center w-full justify-center">
         {isLoading && !success && !error && (
-          <BeatLoader />
+          <Loader message="Vérification en cours…" className="py-4" />
         )}
         <FormSuccess message={success} />
         {!success && (

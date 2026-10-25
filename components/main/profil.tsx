@@ -7,17 +7,11 @@ import { ResetPasswordModal } from "./ResetPasswordModal";
 import { revalidateProfil } from "@/actions/updateProfilePicture";
 import { User } from "@prisma/client";
 import { roleLabels, sexeLabels } from "@/settings/labels";
-import {
-  User as UserIcon,
-  Mail,
-  Phone,
-  MapPin,
-  ShieldCheck,
-  Calendar,
-  Clock,
-  FileText,
-  Languages,
-} from "lucide-react";
+import { Camera, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 const getProfileImageSrc = (
   path: string | null | undefined,
@@ -38,9 +32,54 @@ const getProfileImageSrc = (
   return `${path}${qs}`;
 };
 
+const formatDate = (value: string | Date | null | undefined) =>
+  value
+    ? new Date(value).toLocaleDateString("fr-FR", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+
+type Tab = "details" | "infos";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "details", label: "Détails du compte" },
+  { id: "infos", label: "Informations personnelles" },
+];
+
+/** Une ligne « libellé : valeur » ; sur mobile le libellé passe au-dessus. */
+function Field({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <div className={cn("grid gap-1 py-3 sm:grid-cols-[11rem_1fr] sm:gap-6", className)}>
+      <dt className="text-sm text-gray-500">{label}</dt>
+      <dd className={cn("min-w-0 break-words text-[15px]", empty ? "text-gray-400" : "font-medium text-gray-900")}>
+        {empty ? "Non renseigné" : value}
+      </dd>
+    </div>
+  );
+}
+
+/** Groupe d'informations : titre + liste de lignes séparées. */
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white px-5 pb-2 pt-5 sm:px-6">
+      <h3 className="flex items-center gap-2 text-base font-semibold text-gray-900">
+        <Icon className="h-[18px] w-[18px] text-primaryColor" aria-hidden />
+        {title}
+      </h3>
+      <dl className="mt-2 divide-y divide-gray-100">{children}</dl>
+    </section>
+  );
+}
+
 export const Profil = ({ user }: { user: User | null }) => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"details" | "infos">("details");
+  const [activeTab, setActiveTab] = useState<Tab>("details");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [profileImgError, setProfileImgError] = useState(false);
@@ -64,321 +103,239 @@ export const Profil = ({ user }: { user: User | null }) => {
     );
   }
 
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  const displayName = fullName || user.name || user.email || "Utilisateur";
+  const roleLabel = roleLabels[user.role] ?? user.role;
+  const languages =
+    Array.isArray(user.nigerLanguage) && user.nigerLanguage.length > 0 ? user.nigerLanguage.join(", ") : null;
+
+  // Navigation clavier entre onglets (flèches gauche/droite)
+  const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const index = TABS.findIndex((t) => t.id === activeTab);
+    const next = TABS[(index + (event.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
+    setActiveTab(next.id);
+    document.getElementById(`profil-tab-${next.id}`)?.focus();
+  };
+
   return (
-   
-    <div className="h-full flex flex-col bg-gray-50">
-    {/* Header avec gradient primaryColor - arrondi en bas */}
-    <div className="bg-gradient-to-r from-primaryColor to-primaryDarkColor flex-shrink-0 rounded-t-3xl">
-      <div className="px-8 py-8">
-        <h1 className="text-3xl font-bold text-white">Mon Profil</h1>
-        <p className="mt-2 text-green-100">Gérez vos informations personnelles</p>
+    <div className="mx-auto w-full max-w-6xl">
+      {/* Titre de la page */}
+      <div className="mb-5 sm:mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-[28px]">Mon profil</h1>
+        <p className="mt-1 text-sm text-gray-600 sm:text-base">Consultez et gérez vos informations personnelles.</p>
       </div>
-    </div>
 
-    {/* Header avec image de fond et photo de profil */}
-    <div className="relative flex-shrink-0">
-      <div
-        className="h-48 bg-cover bg-center relative"
-        style={{
-          backgroundImage: `url(${user.headerPicture || "/niamey.jpg"})`,
-        }}
-      >
-        {/* Overlay avec couleur principale du projet et forte opacité */}
-        <div className="absolute inset-0 bg-[#16a34a]/20"></div>
+      {/* Carte d'identité : couverture, avatar, nom, statut */}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div
+          className="relative h-28 bg-primaryColor bg-cover bg-center sm:h-40"
+          style={{ backgroundImage: `url(${user.headerPicture || "/niamey.jpg"})` }}
+          role="img"
+          aria-label="Image de couverture"
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-primaryDarkColor/60 via-primaryColor/10 to-transparent" />
+        </div>
 
-        {/* Contenu du header */}
-        <div className="relative h-full max-w-4xl px-8 flex items-end pb-8">
-          <div className="flex items-center space-x-6 w-full">
-            {/* Photo de profil */}
-            <div className="relative">
-              <div className="relative h-32 w-32">
-                <img
-                  className="h-32 w-32 rounded-full object-cover ring-6 ring-white bg-white shadow-2xl"
-                  src={
-                    profileImgError
-                      ? "/avatar/default-avatar.jpg"
-                      : getProfileImageSrc(
-                          (user.profilePicture ?? user.image) as string,
-                          user.updatedAt
-                        )
-                  }
-                  alt={user.name || "Utilisateur"}
-                  onError={() => setProfileImgError(true)}
-                />
-              </div>
-              {/* Bouton modifier photo en overlay */}
+        <div className="px-5 pb-5 sm:px-8 sm:pb-6">
+          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:gap-6 sm:pt-4 sm:text-left">
+            {/* Avatar à cheval sur la couverture */}
+            <div className="relative -mt-12 shrink-0 sm:-mt-14">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="h-24 w-24 rounded-full bg-white object-cover shadow-md ring-4 ring-white sm:h-28 sm:w-28"
+                src={
+                  profileImgError
+                    ? "/avatar/default-avatar.jpg"
+                    : getProfileImageSrc((user.profilePicture ?? user.image) as string, user.updatedAt)
+                }
+                alt={displayName}
+                onError={() => setProfileImgError(true)}
+              />
               <button
+                type="button"
                 onClick={() => setShowEditModal(true)}
-                className="absolute bottom-0 right-0 rounded-full bg-primaryColor p-2 text-white shadow-lg ring-4 ring-white transition-all hover:scale-110 hover:bg-primaryDarkColor"
+                aria-label="Modifier la photo de profil"
+                title="Modifier la photo de profil"
+                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-secondaryColor text-white shadow-md ring-[3px] ring-white transition-colors hover:bg-[#c75f0f] focus-visible:outline-none focus-visible:ring-primaryColor"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
+                <Camera className="h-4 w-4" aria-hidden />
               </button>
             </div>
 
-            {/* Informations utilisateur */}
-            <div className="flex-1 text-white">
-              <h2 className="text-3xl font-bold">
-                {user.name || 'Nom non défini'}
-              </h2>
-              <p className="text-xl text-white/90 mt-1">
-                {[user.firstName, user.lastName].filter(Boolean).join(" ") ||
-                  user.name ||
-                  "—"}
-              </p>
-              <p className="text-base text-white/80 mt-2">{user.email}</p>
-              <div className="mt-4 flex items-center space-x-3 flex-wrap gap-y-2">
-                <span className="inline-flex items-center px-4 py-1.5 text-sm font-semibold rounded-full bg-white/20 backdrop-blur-sm text-white border border-white/30">
-                  {roleLabels[user.role] ?? user.role}
+            <div className="min-w-0 flex-1 sm:pb-1">
+              <h2 className="text-xl font-bold leading-tight text-gray-900 sm:text-2xl">{displayName}</h2>
+              <p className="mt-1 break-all text-sm text-gray-600 sm:break-words">{user.email}</p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primaryColor/10 px-3 py-1 text-xs font-semibold text-primaryColor">
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                  {roleLabel}
                 </span>
-                <span className={`inline-flex items-center px-4 py-1.5 text-sm font-semibold rounded-full backdrop-blur-sm border ${
-                  user.isActive
-                    ? 'bg-green-500/20 text-white border-green-300/50'
-                    : 'bg-red-500/20 text-white border-red-300/50'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                    user.isActive ? 'bg-green-400' : 'bg-red-400'
-                  }`}></div>
-                  {user.isActive ? 'Compte actif' : 'Compte inactif'}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+                    user.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                  )}
+                >
+                  <span
+                    className={cn("h-1.5 w-1.5 rounded-full", user.isActive ? "bg-green-600" : "bg-red-600")}
+                    aria-hidden
+                  />
+                  {user.isActive ? "Compte actif" : "Compte inactif"}
                 </span>
               </div>
             </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="hidden shrink-0 sm:inline-flex"
+              onClick={() => setShowEditModal(true)}
+            >
+              <Camera className="mr-2 h-4 w-4" aria-hidden />
+              Changer la photo
+            </Button>
           </div>
+        </div>
+
+        {/* Onglets */}
+        <div
+          role="tablist"
+          aria-label="Sections du profil"
+          className="flex overflow-x-auto border-t border-gray-200 px-2 sm:px-6 [scrollbar-width:none]"
+        >
+          {TABS.map((tab) => {
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`profil-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={`profil-panel-${tab.id}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                onKeyDown={onTabKeyDown}
+                className={cn(
+                  "relative min-h-12 shrink-0 whitespace-nowrap px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primaryColor sm:px-4",
+                  "after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors sm:after:inset-x-4",
+                  selected
+                    ? "text-primaryColor after:bg-primaryColor"
+                    : "text-gray-600 after:bg-transparent hover:text-gray-900"
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
-    </div>
 
-    {/* Contenu scrollable */}
-    {/* <div className="flex-1 overflow-y-auto modal-scroll p-8"> */}
-    <div className="flex-1 overflow-y-auto modal-scroll">
-      {/* <div className="max-w-4xl mx-auto"> */}
-        {/* Onglets au niveau du grand conteneur */}
-        <div className="w-full bg-white rounded-b-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="px-6 pt-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('details')}
-              className={`${activeTab === 'details' ? 'text-primaryColor border-primaryColor' : 'text-gray-600 border-transparent'} border-b-2 px-3 py-2 text-sm font-semibold`}
-            >
-              Détails du compte
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('infos')}
-              className={`${activeTab === 'infos' ? 'text-primaryColor border-primaryColor' : 'text-gray-600 border-transparent'} border-b-2 px-3 py-2 text-sm font-semibold`}
-            >
-              Informations personnelles
-            </button>
+      {/* Contenu de l'onglet actif */}
+      {activeTab === "details" && (
+        <div
+          id="profil-panel-details"
+          role="tabpanel"
+          aria-labelledby="profil-tab-details"
+          className="mt-5 grid gap-5 lg:mt-6 lg:grid-cols-3 lg:items-start lg:gap-6"
+        >
+          <div className="space-y-5 lg:col-span-2 lg:space-y-6">
+            <Section icon={UserRound} title="Identité">
+              <Field label="Prénom" value={user.firstName} />
+              <Field label="Nom" value={user.lastName} />
+              <Field label="Sexe" value={user.sexe ? (sexeLabels[user.sexe] ?? user.sexe) : null} />
+              <Field label="Langues parlées" value={languages} />
+              <Field
+                label="Biographie"
+                value={user.bio ? <span className="block max-w-prose whitespace-pre-wrap font-normal leading-relaxed text-gray-800">{user.bio}</span> : null}
+              />
+            </Section>
+
+            <Section icon={Mail} title="Contact">
+              <Field label="Adresse e-mail" value={user.email} />
+              <Field label="Téléphone" value={user.phone ? <span className="tabular-nums">{user.phone}</span> : null} />
+              <Field label="Adresse" value={user.address} />
+            </Section>
           </div>
+
+          <Section icon={ShieldCheck} title="Compte">
+            <Field className="sm:grid-cols-1 sm:gap-1" label="Rôle" value={roleLabel} />
+            <Field
+              className="sm:grid-cols-1 sm:gap-1"
+              label="Statut"
+              value={user.isActive ? "Actif" : "Inactif"}
+            />
+            <Field className="sm:grid-cols-1 sm:gap-1" label="Membre depuis le" value={formatDate(user.createdAt)} />
+            <Field
+              className="sm:grid-cols-1 sm:gap-1"
+              label="Dernière mise à jour"
+              value={formatDate(user.updatedAt)}
+            />
+          </Section>
         </div>
-          {/* Contenu de l'onglet actif */}
-        {activeTab === "details" && (
-          <div className="p-6 sm:p-8">
-            <div className="space-y-8">
-              {/* Identité */}
-              <section>
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-primaryColor">
-                  <UserIcon className="h-4 w-4" />
-                  Identité
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
-                    { icon: UserIcon, label: "Prénom", value: user.firstName ?? "—" },
-                    { icon: UserIcon, label: "Nom", value: user.lastName ?? "—" },
-                    {
-                      icon: UserIcon,
-                      label: "Sexe",
-                      value: user.sexe ? (sexeLabels[user.sexe] ?? user.sexe) : "—",
-                    },
-                  ].map(({ icon: Icon, label, value }) => (
-                    <div
-                      key={label}
-                      className="flex items-start gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 transition hover:border-primaryColor/30 hover:bg-gray-50"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{label}</p>
-                        <p className="mt-0.5 truncate text-base font-medium text-gray-900">{value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+      )}
 
-              {/* Contact */}
-              <section>
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-primaryColor">
-                  <Mail className="h-4 w-4" />
-                  Contact
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {[
-                    { icon: Mail, label: "Email", value: user.email ?? "—" },
-                    { icon: Phone, label: "Téléphone", value: user.phone ?? "—" },
-                    { icon: MapPin, label: "Adresse", value: user.address ?? "—" },
-                  ].map(({ icon: Icon, label, value }) => (
-                    <div
-                      key={label}
-                      className="flex items-start gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 transition hover:border-primaryColor/30 hover:bg-gray-50"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{label}</p>
-                        <p className="mt-0.5 break-words text-base font-medium text-gray-900">{value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Biographie & Langues */}
-              <section>
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-primaryColor">
-                  <FileText className="h-4 w-4" />
-                  À propos
-                </h3>
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <div className="flex items-start gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 transition hover:border-primaryColor/30 hover:bg-gray-50 lg:col-span-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Biographie</p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-900">
-                        {user.bio ?? "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 transition hover:border-primaryColor/30 hover:bg-gray-50">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                      <Languages className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Langues</p>
-                      <p className="mt-0.5 text-base font-medium text-gray-900">
-                        {Array.isArray(user.nigerLanguage) && user.nigerLanguage.length > 0
-                          ? user.nigerLanguage.join(", ")
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Compte */}
-              <section>
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-primaryColor">
-                  <ShieldCheck className="h-4 w-4" />
-                  Compte
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
-                    {
-                      icon: ShieldCheck,
-                      label: "Rôle",
-                      value: roleLabels[user.role] ?? user.role,
-                    },
-                    {
-                      icon: Calendar,
-                      label: "Date de création",
-                      value: user.createdAt
-                        ? new Date(user.createdAt).toLocaleDateString("fr-FR", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
-                        : "—",
-                    },
-                    {
-                      icon: Clock,
-                      label: "Dernière mise à jour",
-                      value: user.updatedAt
-                        ? new Date(user.updatedAt).toLocaleDateString("fr-FR", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
-                        : "—",
-                    },
-                  ].map(({ icon: Icon, label, value }) => (
-                    <div
-                      key={label}
-                      className="flex items-start gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 transition hover:border-primaryColor/30 hover:bg-gray-50"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primaryColor/10 text-primaryColor">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{label}</p>
-                        <p className="mt-0.5 break-words text-base font-medium text-gray-900">{value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+      {activeTab === "infos" && (
+        <div
+          id="profil-panel-infos"
+          role="tabpanel"
+          aria-labelledby="profil-tab-infos"
+          className="mt-5 rounded-lg border border-gray-200 bg-white p-5 sm:p-8 lg:mt-6"
+        >
+          <form className="grid max-w-3xl grid-cols-1 gap-5 md:grid-cols-2" onSubmit={(e) => e.preventDefault()}>
+            <div className="space-y-2">
+              <label htmlFor="profil-phone" className="block text-sm font-medium text-gray-700">
+                Téléphone
+              </label>
+              <Input
+                id="profil-phone"
+                type="tel"
+                name="phone"
+                autoComplete="tel"
+                defaultValue={user.phone ?? ""}
+                placeholder="Ex. : +227 90 00 00 00"
+                className="h-11 bg-white"
+              />
             </div>
-          </div>
-        )}
-
-        {activeTab === "infos" && (
-          <div className="p-8">
-            <form
-              className="grid grid-cols-1 gap-6 md:grid-cols-2"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Téléphone</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  defaultValue={user.phone ?? ""}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:border-primaryColor focus:outline-none focus:ring-2 focus:ring-primaryColor"
-                  placeholder="Ex: +227 90 00 00 00"
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Adresse</label>
-                <input
-                  type="text"
-                  name="address"
-                  defaultValue={user.address ?? ""}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:border-primaryColor focus:outline-none focus:ring-2 focus:ring-primaryColor"
-                  placeholder="Ex: Niamey, Niger"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Biographie</label>
-                <textarea
-                  name="bio"
-                  rows={4}
-                  defaultValue={user.bio ?? ""}
-                  className="min-h-28 w-full rounded-xl border border-gray-300 px-4 py-2 focus:border-primaryColor focus:outline-none focus:ring-2 focus:ring-primaryColor"
-                  placeholder="Quelques mots sur vous..."
-                />
-              </div>
-              <div className="flex justify-end md:col-span-2">
-                <button
-                  type="submit"
-                  className="inline-flex items-center rounded-xl bg-primaryColor px-6 py-3 text-sm font-semibold text-white shadow transition-colors hover:bg-primaryDarkColor"
-                >
-                  Enregistrer
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            <div className="space-y-2">
+              <label htmlFor="profil-address" className="block text-sm font-medium text-gray-700">
+                Adresse
+              </label>
+              <Input
+                id="profil-address"
+                type="text"
+                name="address"
+                autoComplete="street-address"
+                defaultValue={user.address ?? ""}
+                placeholder="Ex. : Niamey, Niger"
+                className="h-11 bg-white"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="profil-bio" className="block text-sm font-medium text-gray-700">
+                Biographie
+              </label>
+              <Textarea
+                id="profil-bio"
+                name="bio"
+                rows={5}
+                defaultValue={user.bio ?? ""}
+                placeholder="Quelques mots sur vous, votre fonction, vos domaines d'action…"
+                className="bg-white leading-relaxed"
+              />
+            </div>
+            <div className="flex md:col-span-2 md:justify-end">
+              <Button type="submit" className="h-11 w-full bg-primaryColor text-white hover:bg-primaryDarkColor md:w-auto md:px-8">
+                Enregistrer
+              </Button>
+            </div>
+          </form>
         </div>
-      {/* </div> */}
-    </div>
+      )}
 
-    {/* Modaux */}
-    <>
+      {/* Modaux */}
       <EditProfilPicture
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
@@ -391,7 +348,6 @@ export const Profil = ({ user }: { user: User | null }) => {
         onSuccess={handleEditSuccess}
         user={user}
       />
-    </>
-  </div>
+    </div>
   );
 };

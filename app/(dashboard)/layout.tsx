@@ -8,7 +8,7 @@ import { useSession } from "@/context/SessionContext";
 import { SidebarClear } from "@/components/Sidebarr/SidebarClear/SidebarClear";
 import HeaderClear from "@/components/Sidebarr/SidebarClear/Header";
 import { Sidebar2 } from "@/components/Sidebar2/Sidebar2";
-import { Loader } from "@/components/common/Loader";
+import Loader from "@/components/loader";
 import Sidebar from "@/components/Sidebarr/Sidebar";
 import { adminNavigation } from "@/settings/navigation";
 
@@ -33,7 +33,7 @@ export default function DashboardLayout({
 
   // Afficher un loader pendant la vérification de l'authentification
   if (isLoading) {
-    return <Loader />;
+    return <Loader fullScreen />;
   }
 
   // Rediriger si l'utilisateur n'est pas authentifié (ou pas encore chargé)

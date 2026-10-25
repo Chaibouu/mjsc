@@ -6,8 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
-import { useState } from "react";
-import { Menu, X, MessageSquare, Target, Building2, Briefcase, FolderKanban, Users, Trophy, Palette, LayoutDashboard, UserRound, LogOut, LucideIcon } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -19,8 +17,9 @@ import {
 } from "@/components/ui/navigation-menu";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/context/SessionContext";
-import { UserMenu, UserAvatar, displayName, userSpaceLinks, useLogout } from "@/components/user-menu";
-import { roleLabels } from "@/settings/labels";
+import { UserMenu } from "@/components/user-menu";
+import { MobileNav } from "@/components/mobile-nav";
+import { navIconMap } from "@/components/nav-icons";
 
 // Liens de la barre : texte toujours blanc ; un trait de la couleur secondaire se trace
 // progressivement de gauche à droite au survol, au focus clavier, menu ouvert et sur la page active.
@@ -39,22 +38,10 @@ interface ListItemProps extends React.ComponentPropsWithoutRef<"a"> {
   icon?: string;
 }
 
-// Mapping des icônes disponibles
-const iconMap: Record<string, LucideIcon> = {
-  MessageSquare,
-  Target,
-  Building2,
-  Briefcase,
-  FolderKanban,
-  Users,
-  Trophy,
-  Palette,
-};
-
 const ListItem = React.forwardRef<React.ElementRef<"a">, ListItemProps>(
   ({ className, title, icon, children, ...props }, ref) => {
     const [isHovered, setIsHovered] = React.useState(false);
-    const IconComponent = icon ? iconMap[icon] : null;
+    const IconComponent = icon ? navIconMap[icon] : null;
     
     return (
       <li>
@@ -99,9 +86,7 @@ ListItem.displayName = "ListItem";
 
 function Navigation() {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useSession();
-  const { onLogout, isPending: isLoggingOut } = useLogout();
 
   const isActive = (path: string) => {
     // Vérifier si le pathname correspond exactement ou commence par le chemin (pour les sous-pages)
@@ -113,17 +98,13 @@ function Navigation() {
   const isGroupActive = (item: (typeof menuItems)[number]) =>
     isActive(item.href) || !!item.children?.some((child) => isActive(child.href));
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
   return (
     <nav className="bg-gradient-to-r from-orange-500 to-green-600 shadow-lg sticky top-0 z-50">
       {/* Menu de navigation avec logo et liens sur une seule ligne */}
       <div className="bg-gradient-to-r from-orange-500 to-green-600">
         <div className="flex items-center justify-between h-20 w-full">
           {/* Contenu principal avec max-width */}
-          <div className="flex items-center gap-4 lg:gap-6 flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 sm:gap-4 lg:gap-6 flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Logo Armoiries */}
             <Link href="/" className="flex-shrink-0">
             <Image
@@ -136,17 +117,17 @@ function Navigation() {
             </Link>
             
             {/* Texte officiel */}
-            <div className="flex flex-col border-l-2 border-white/30 pl-3 sm:pl-4">
+            <div className="flex min-w-0 flex-col border-l-2 border-white/30 pl-3 sm:pl-4">
               <h2 className="text-xs lg:text-[10px] font-bold text-white">République du Niger</h2>
               <Image
                 src="/arc.png"
                 height={15}
                 width={150}
                 alt="Arc"
-                className="object-contain"
+                className="max-w-full object-contain"
               />
-              {/* Nom du ministère */}
-              <h2 className="text-xs lg:text-[10px] font-bold text-white mt-1 hidden lg:block">
+              {/* Nom du ministère : sur deux lignes en petit sur mobile */}
+              <h2 className="mt-1 text-[10px] leading-tight sm:text-xs lg:text-[10px] font-bold text-white">
                 Ministère de la Jeunesse, des Sports et de la Culture
               </h2>
             </div>
@@ -191,17 +172,16 @@ function Navigation() {
                   const itemIsActive = isActive(item.href);
                   return (
                     <NavigationMenuItem key={item.href}>
-                      <Link href={item.href} legacyBehavior passHref>
-                        <NavigationMenuLink
-                          className={cn(
-                            navigationMenuTriggerStyle(),
-                            navLinkClass,
-                            itemIsActive && navLinkActiveClass
-                          )}
-                        >
-                          {item.label}
-                        </NavigationMenuLink>
-            </Link>
+                      <NavigationMenuLink
+                        asChild
+                        className={cn(
+                          navigationMenuTriggerStyle(),
+                          navLinkClass,
+                          itemIsActive && navLinkActiveClass
+                        )}
+                      >
+                        <Link href={item.href}>{item.label}</Link>
+                      </NavigationMenuLink>
                     </NavigationMenuItem>
                   );
                 })}
@@ -209,14 +189,16 @@ function Navigation() {
             </NavigationMenu>
           </div>
 
-          {/* Boutons Connexion/S'inscrire et menu mobile - à l'extrémité droite */}
+          {/* Compte (à partir de md ; sur mobile il est en haut du panneau) et bouton du menu mobile */}
           <div className="flex items-center gap-3 flex-shrink-0 px-4 sm:px-6 lg:px-8">
               {user ? (
-                <UserMenu user={user} />
+                <div className="hidden md:block">
+                  <UserMenu user={user} />
+                </div>
               ) : (
                 <>
                   {/* Bouton Connexion */}
-                  <Link href="/auth/login" className="hidden sm:block">
+                  <Link href="/auth/login" className="hidden md:block">
                     <button
                       className="px-4 py-2 rounded-md text-white text-sm font-medium border-2 border-white transition-colors"
                       style={{
@@ -240,7 +222,7 @@ function Navigation() {
                 </Link>
 
                   {/* Bouton S'inscrire */}
-                  <Link href="/auth/signup" className="hidden sm:block">
+                  <Link href="/auth/signup" className="hidden md:block">
                     <button
                       className="px-4 py-2 rounded-md text-white text-sm font-medium border-2 border-white bg-transparent transition-colors"
                       onMouseEnter={(e) => {
@@ -259,128 +241,11 @@ function Navigation() {
                 </>
               )}
 
-              {/* Bouton mobile menu */}
-              <button
-                onClick={toggleMobileMenu}
-                className="xl:hidden text-white p-2"
-                aria-label="Toggle menu"
-              >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+              <MobileNav user={user ?? null} />
           </div>
         </div>
       </div>
 
-      {/* Menu mobile */}
-      {isMobileMenuOpen && (
-        <div className="xl:hidden bg-white border-t border-gray-200">
-          <div className="px-4 py-3 space-y-2">
-            {menuItems.map((item) => {
-              const hasChildren = !!item.children && item.children.length > 0;
-              return (
-                <div key={item.href}>
-                  {hasChildren ? (
-                    // Un groupe (Ministère, Secteurs) n'a pas de page propre : simple titre
-                    <p className={`px-4 py-2 font-medium ${isGroupActive(item) ? 'text-primary font-semibold' : 'text-gray-700'}`}>
-                      {item.label}
-                    </p>
-                  ) : (
-                    <Link
-                      href={item.href}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`block px-4 py-2 rounded-md ${pathname === item.href ? 'text-primary font-semibold' : 'text-gray-700 hover:text-primary'} font-medium transition-colors`}
-                    >
-                      {item.label}
-                    </Link>
-                  )}
-                  {hasChildren && (
-                    <div className="pl-6 mt-1 space-y-1">
-                      {item.children!.map((child) => {
-                        const ChildIcon = child.icon ? iconMap[child.icon] : null;
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm ${pathname === child.href ? 'text-primary font-semibold' : 'text-gray-600 hover:text-primary'} transition-colors`}
-                          >
-                            {ChildIcon && <ChildIcon className="h-4 w-4" />}
-                            {child.title}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Compte : avatar et liens si connecté, sinon connexion / inscription */}
-            <div className="border-t border-gray-200 pt-3 mt-3">
-              {user ? (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3 px-4 py-2">
-                    <UserAvatar user={user} className="h-10 w-10" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">{displayName(user)}</p>
-                      <p className="truncate text-xs text-gray-500">{roleLabels[user.role] ?? user.role}</p>
-                    </div>
-                  </div>
-                  <Link
-                    href={userSpaceLinks(user).space}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-md text-sm text-gray-700 hover:text-primary"
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    Mon espace
-                  </Link>
-                  {userSpaceLinks(user).profile && (
-                    <Link
-                      href={userSpaceLinks(user).profile!}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-md text-sm text-gray-700 hover:text-primary"
-                    >
-                      <UserRound className="h-4 w-4" />
-                      Mon profil
-                    </Link>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      onLogout();
-                    }}
-                    disabled={isLoggingOut}
-                    className="flex w-full items-center gap-2 px-4 py-2 rounded-md text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    {isLoggingOut ? "Déconnexion…" : "Se déconnecter"}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2 px-4 sm:hidden">
-                  <Link
-                    href="/auth/login"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex-1 rounded-md px-4 py-2 text-center text-sm font-medium text-white"
-                    style={{ backgroundColor: appConfig.secondaryColor }}
-                  >
-                    Connexion
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex-1 rounded-md border-2 px-4 py-2 text-center text-sm font-medium"
-                    style={{ borderColor: appConfig.secondaryColor, color: appConfig.secondaryColor }}
-                  >
-                    S&apos;inscrire
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </nav>
   );
 }

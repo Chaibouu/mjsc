@@ -1,96 +1,51 @@
 'use client';
 
 import React from 'react';
-import { ClockLoader, SyncLoader } from 'react-spinners';
-import Image from 'next/image';
+import { ScaleLoader } from 'react-spinners';
 import appConfig from '@/settings';
+import { cn } from '@/lib/utils';
 
 interface LoaderProps {
-  size?: number;
+  /** Occupe tout l'écran (chargement d'une page entière) */
   fullScreen?: boolean;
+  /** Texte affiché sous le loader */
   message?: string;
   className?: string;
-  inline?: boolean;
   color?: string;
 }
 
-const Loader: React.FC<LoaderProps> = ({ 
-  size = 16,
-  fullScreen = false,
-  message,
-  className = '',
-  inline = false,
-  color
-}) => {
-  const loaderColor = color || appConfig.primaryColor;
-  
-  if (inline) {
-    return (
-      <div className="flex items-center gap-2">
-        <div 
-          className="relative" 
-          style={{ 
-            width: size * 2.5, 
-            height: size * 2.5,
-            backgroundColor: loaderColor,
-            WebkitMaskImage: `url(${appConfig.sidebarClearlogoUrl})`,
-            WebkitMaskSize: 'contain',
-            WebkitMaskRepeat: 'no-repeat',
-            WebkitMaskPosition: 'center',
-            maskImage: `url(${appConfig.sidebarClearlogoUrl})`,
-            maskSize: 'contain',
-            maskRepeat: 'no-repeat',
-            maskPosition: 'center',
-          }}
-        />
-        <ClockLoader 
-          color={loaderColor}
-          size={size}
-          loading={true}
-        />
-      </div>
-    );
-  }
-
-  const loaderContent = (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
-      {/* Image armoirie avec couleur du loader */}
-      <div 
-        className="relative mb-4" 
-        style={{ 
-          width: size * 10, 
-          height: size * 10,
-          backgroundColor: loaderColor,
-          WebkitMaskImage: `url(${appConfig.sidebarClearlogoUrl})`,
-          WebkitMaskSize: 'contain',
-          WebkitMaskRepeat: 'no-repeat',
-          WebkitMaskPosition: 'center',
-          maskImage: `url(${appConfig.sidebarClearlogoUrl})`,
-          maskSize: 'contain',
-          maskRepeat: 'no-repeat',
-          maskPosition: 'center',
-        }}
-      />
-      <SyncLoader  
-        color={loaderColor}
-        size={size}
-        loading={true}
-      />
-      {message && (
-        <p className="mt-4 text-gray-600 font-medium">{message}</p>
-      )}
+/**
+ * Loader principal du projet (pages et zones en chargement), dans la couleur principale.
+ */
+const Loader: React.FC<LoaderProps> = ({ fullScreen = false, message, className, color }) => {
+  const content = (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn('flex flex-col items-center justify-center gap-4', !fullScreen && 'py-16', className)}
+    >
+      <ScaleLoader color={color ?? appConfig.primaryColor} aria-hidden />
+      <span className={message ? 'text-sm font-medium text-gray-600' : 'sr-only'}>
+        {message ?? 'Chargement…'}
+      </span>
     </div>
   );
 
   if (fullScreen) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        {loaderContent}
-      </div>
-    );
+    return <div className="flex min-h-screen items-center justify-center bg-white">{content}</div>;
   }
-
-  return loaderContent;
+  return content;
 };
+
+/**
+ * Petit loader pour les boutons en cours d'action ; prend la couleur du texte du bouton.
+ */
+export function ButtonLoader({ className, color = 'currentColor' }: { className?: string; color?: string }) {
+  return (
+    <span className={cn('inline-flex items-center', className)} aria-hidden>
+      <ScaleLoader color={color} height={14} width={2} radius={1} margin={1} />
+    </span>
+  );
+}
 
 export default Loader;

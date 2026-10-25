@@ -61,6 +61,7 @@ const appConfig = {
     verify: { max: 20, windowMs: 60 * 60 * 1000 },
     "change-email": { max: 10, windowMs: 60 * 60 * 1000 },
     "change-password": { max: 10, windowMs: 60 * 60 * 1000 },
+    contact: { max: 5, windowMs: 60 * 60 * 1000 },
   },
   // Configuration du Backoff progressif
   backoff: {

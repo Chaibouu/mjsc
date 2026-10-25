@@ -1,7 +1,8 @@
 'use client'
 import React, { ReactNode, useState } from 'react'
 import { FilePenLine } from 'lucide-react'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { FormDialogContent } from '@/components/Forms/FormDialogContent'
 
 interface UpdateProps {
   /** Titre lu par les lecteurs d'écran */
@@ -21,10 +22,10 @@ export default function Update({ label = "Modifier", children }: UpdateProps) {
           <FilePenLine className="cursor-pointer" color="#306ced" />
         </button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
+      <FormDialogContent className="sm:max-w-3xl">
         <DialogTitle className="sr-only">{label}</DialogTitle>
         {typeof children === "function" ? children(handleClose) : children}
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   )
 }

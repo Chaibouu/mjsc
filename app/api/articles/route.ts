@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireContentEditorApi } from "@/lib/api-users-auth";
+import { cleanRichField } from "@/lib/rich-content";
 import { createArticleSchema } from "@/schemas/article";
 import {
   uploadArticleMainImage,
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
     const title = (formData.get("title") as string)?.trim();
-    const description = (formData.get("description") as string)?.trim() || undefined;
+    const description = cleanRichField(formData.get("description")) || undefined;
     const linkRaw = (formData.get("link") as string)?.trim();
     const link = linkRaw && linkRaw !== "" ? linkRaw : undefined;
     const mainImage = formData.get("mainImage") as File | null;

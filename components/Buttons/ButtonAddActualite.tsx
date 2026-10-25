@@ -2,7 +2,8 @@
 import React, { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '../ui/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog'
+import { Dialog, DialogTitle, DialogTrigger } from '../ui/dialog'
+import { FormDialogContent } from '../Forms/FormDialogContent'
 import appConfig from '@/settings'
 import AddActualite from '../Forms/Add/AddActualite'
 
@@ -23,10 +24,10 @@ export default function ButtonAddActualite() {
                   <Plus /> Ajouter une actualité
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
+            <FormDialogContent className="sm:max-w-3xl">
                 <DialogTitle className="sr-only">Ajouter une actualité</DialogTitle>
                 <AddActualite onClose={handleClose} />
-            </DialogContent>
+            </FormDialogContent>
         </Dialog>
   )
 }

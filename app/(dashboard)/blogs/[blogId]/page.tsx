@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getBlogAction } from "@/actions/blog-actions";
 import { BlogDetail } from "@/components/blog/BlogDetail";
-import { PostsListSkeleton } from "@/components/skeletons";
+import Loader from "@/components/loader"
 
 // Composant pour récupérer les informations du blog
 async function BlogInfo({ blogId }: { blogId: string }) {
@@ -36,7 +36,7 @@ export default async function BlogPage({
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Suspense fallback={<PostsListSkeleton />}>
+      <Suspense fallback={<Loader />}>
         <BlogInfo blogId={blogId} />
       </Suspense>
     </div>

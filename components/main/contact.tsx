@@ -16,11 +16,8 @@ import {
     ChevronLeft
   } from "lucide-react";
   import { cn } from "@/lib/utils";
-  import { Button } from "@/components/ui/button";
-  import { Input } from "@/components/ui/input";
-  import { Textarea } from "@/components/ui/textarea";
   import { Card, CardContent } from "@/components/ui/card";
-  import appConfig from "@/settings";
+  import ContactForm from "@/components/main/contact-form";
 
 export default function Contact() {
   return (
@@ -109,49 +106,7 @@ export default function Contact() {
                   <h3 className="text-xl font-semibold mb-2 text-gray-900">Envoyez-nous un message</h3>
                   <p className="text-sm text-gray-600">Remplissez le formulaire ci-dessous et nous vous répondrons dans les plus brefs délais.</p>
                 </div>
-                <form className="space-y-5">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Nom</label>
-                      <Input
-                        type="text"
-                        placeholder="Votre nom"
-                        className="w-full border-2 border-gray-200 focus:border-primaryColor focus:ring-2 focus:ring-primaryLightTransparentColor transition-colors"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email</label>
-                      <Input
-                        type="email"
-                        placeholder="votre@email.com"
-                        className="w-full border-2 border-gray-200 focus:border-primaryColor focus:ring-2 focus:ring-primaryLightTransparentColor transition-colors"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Sujet</label>
-                    <Input
-                      type="text"
-                      placeholder="Objet de votre message"
-                      className="w-full border-2 border-gray-200 focus:border-primaryColor focus:ring-2 focus:ring-primaryLightTransparentColor transition-colors"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Message</label>
-                    <Textarea
-                      placeholder="Votre message..."
-                      rows={5}
-                      className="w-full border-2 border-gray-200 focus:border-primaryColor focus:ring-2 focus:ring-primaryLightTransparentColor resize-none transition-colors"
-                    />
-                  </div>
-                  <Button 
-                    className="w-full text-white shadow-md hover:shadow-lg transition-all duration-200 mt-6"
-                    style={{ backgroundColor: appConfig.pprimaryColor }}
-                  >
-                    Envoyer le message
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </form>
+                <ContactForm />
               </CardContent>
             </Card>
           </div>

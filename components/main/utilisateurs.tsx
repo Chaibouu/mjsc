@@ -1,5 +1,6 @@
 "use client";
 
+import Loader from "@/components/loader";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,7 +57,6 @@ import {
   MapPin,
   Calendar,
   ShieldCheck,
-  Loader2,
   FileText,
   Languages,
   Clock,
@@ -474,10 +474,7 @@ export function Utilisateurs({
             <>
               {viewUserLoading && (
                 <div className="flex flex-1 items-center justify-center py-16">
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-10 w-10 animate-spin text-primaryColor" />
-                    <p className="text-sm text-gray-500">Chargement…</p>
-                  </div>
+                  <Loader message="Chargement…" className="py-0" />
                 </div>
               )}
               {viewUserError && (
@@ -818,10 +815,9 @@ export function Utilisateurs({
               </Button>
               <Button
                 onClick={handleEdit}
-                disabled={loading}
+                loading={loading}
                 className="bg-primaryColor hover:bg-primaryDarkColor"
               >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enregistrer
               </Button>
             </div>
@@ -844,8 +840,7 @@ export function Utilisateurs({
             <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={loading}>
               Annuler
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button variant="destructive" onClick={handleDelete} loading={loading}>
               Supprimer
             </Button>
           </DialogFooter>
@@ -871,9 +866,8 @@ export function Utilisateurs({
             <Button
               variant={toggleTarget?.isActive ? "destructive" : "default"}
               onClick={handleToggleActive}
-              disabled={loading}
+              loading={loading}
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {toggleTarget?.isActive ? "Désactiver" : "Activer"}
             </Button>
           </DialogFooter>

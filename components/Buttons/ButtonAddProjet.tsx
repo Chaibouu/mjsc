@@ -2,7 +2,8 @@
 import React, { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '../ui/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog'
+import { Dialog, DialogTitle, DialogTrigger } from '../ui/dialog'
+import { FormDialogContent } from '../Forms/FormDialogContent'
 import appConfig from '@/settings'
 import AddProjet from '../Forms/Add/AddProjet'
 
@@ -23,10 +24,10 @@ export default function ButtonAddProjet() {
                   <Plus /> Ajouter un projet
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
+            <FormDialogContent className="sm:max-w-3xl">
                 <DialogTitle className="sr-only">Ajouter un projet</DialogTitle>
                 <AddProjet onClose={handleClose} />
-            </DialogContent>
+            </FormDialogContent>
         </Dialog>
   )
 }

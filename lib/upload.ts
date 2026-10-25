@@ -271,3 +271,8 @@ export async function deleteAssociationFile(path: string): Promise<void> {
   if (!m) return;
   await deleteObject(`${ASSOCIATION_PREFIX}/${m[1]}/${m[2]}/${m[3]}`);
 }
+
+/** Image insérée dans un texte riche (éditeur) : editor/{unique}.{ext}, jamais remplacée. */
+export async function uploadEditorImage(file: File): Promise<UploadResult> {
+  return storeImage(file, "editor", uniqueName());
+}
